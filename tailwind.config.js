@@ -124,6 +124,18 @@ module.exports = {
         'auth-card-dark': '0 10px 40px -10px rgba(0, 0, 0, 0.4)',
         'primary-glow': '0 4px 24px rgba(67, 37, 125, 0.3)',
       },
+      backgroundImage: {
+        // Replaces the .hero-gradient inline <style> class from the original HTML.
+        // Usage: className="bg-hero-gradient"
+        'hero-gradient':
+          'radial-gradient(circle at 70% 30%, rgba(210, 188, 255, 0.15) 0%, transparent 50%), ' +
+          'radial-gradient(circle at 10% 80%, rgba(255, 179, 178, 0.1) 0%, transparent 40%)',
+      },
+      gridTemplateColumns: {
+        // Allows grid-cols-12 for the bento layout.
+        // Replaces the custom .bento-grid { grid-template-columns: repeat(12, 1fr) } CSS class.
+        12: 'repeat(12, minmax(0, 1fr))',
+      },
     },
   },
   plugins: [],
