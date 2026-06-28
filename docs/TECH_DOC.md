@@ -88,8 +88,10 @@ financeHer/
 │   │   ├── layout.tsx           # Root layout: fonts, metadata, providers
 │   │   ├── page.tsx             # Landing page at route "/"
 │   │   ├── not-found.tsx        # Custom 404 page
-│   │   └── auth/
-│   │       └── page.tsx         # Auth page at route "/auth"
+│   │   ├── auth/
+│   │   │   └── page.tsx         # Auth page at route "/auth"
+│   │   └── onboarding/
+│   │       └── page.tsx         # Onboarding wizard page at "/onboarding"
 │   │
 │   ├── components/
 │   │   ├── ui/                  # Design-system primitives (reusable across all features)
@@ -109,6 +111,18 @@ financeHer/
 │   │   │   ├── HeroSection.tsx
 │   │   │   ├── FeaturesBentoSection.tsx
 │   │   │   ├── CtaBanner.tsx
+│   │   │   └── index.ts
+│   │   │
+│   │   ├── onboarding/          # Onboarding wizard step components (collocated)
+│   │   │   ├── StepOccupationIncome.tsx
+│   │   │   ├── StepFixedExpenses.tsx
+│   │   │   ├── StepSavings.tsx
+│   │   │   ├── StepDebts.tsx
+│   │   │   ├── StepDependents.tsx
+│   │   │   ├── StepGoals.tsx
+│   │   │   ├── StepExperience.tsx
+│   │   │   ├── StepRisk.tsx
+│   │   │   ├── StepSuccess.tsx
 │   │   │   └── index.ts
 │   │   │
 │   │   └── auth/                # Auth feature components (collocated)
@@ -363,6 +377,27 @@ financeHer/
 
 ---
 
+### 3.18 `Onboarding Components` (`src/components/onboarding/*`)
+
+**Purpose:** Multi-step onboarding wizard screens that capture career details, assets, liabilities, goals, investing background, and risk profiles.
+
+*   **StepOccupationIncome:** Prompts for current occupation and monthly net income. Uses decorative illustration on the right.
+*   **StepFixedExpenses:** Gathers rent, utility, and recurring expenses.
+*   **StepSavings:** Captures total savings and liquid emergency assets.
+*   **StepDebts:** Gathers total liabilities (loans, credit cards, mortgages).
+*   **StepDependents:** Gathers count of household dependents (0, 1, 2, 3+).
+*   **StepGoals:** Interactive multi-choice cards for financial priorities (Home, Retirement, Travel, Security).
+*   **StepExperience:** Radio-group selector for investment background (New, Some, Confident).
+*   **StepRisk:** Interactive range-slider (1 to 5) with live feedback matching risk profile descriptions.
+*   **StepSuccess:** Displays a dynamic financial optimization summary generated from the user's input.
+
+**Key Accessibility Features:**
+*   Eliminated the custom hidden checkbox/radio inputs that broke keyboard tab indices and screen reader access. Replaced with `sr-only` inputs coupled with sibling labels and peer styling for custom states (e.g. `peer-focus-visible:ring-2` to restore outline rings).
+*   Correctly wrapped selection groups in semantic HTML `<fieldset>` and `<legend>` blocks.
+*   Annotated progress indicators with `role="img"` and `aria-label`.
+
+---
+
 ## 4. State Management
 
 ### 4.1 Current State Strategy
@@ -376,6 +411,8 @@ All state is currently **local component state** (`useState`). No global state l
 | Signup form data | `SignupForm` | `useState<SignupFormData>` |
 | Forgot password email | `ForgotPasswordForm` | `useState<string>` |
 | Form loading/error/success | Each form | `useState<AuthFormState>` |
+| Onboarding wizard step index | `OnboardingPage` | `useState<number>` |
+| Onboarding form data | `OnboardingPage` | `useState<OnboardingData>` |
 
 ### 4.2 Planned Global State (for Dashboard+)
 

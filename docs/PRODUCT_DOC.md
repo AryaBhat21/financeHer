@@ -1,7 +1,7 @@
 # FinanceHer — Product Document
 
 > **Living Document** — Updated alongside every feature, flow, or product change.  
-> Last updated: 2026-06-28 (Milestone 3 — Landing Page)
+> Last updated: 2026-06-28 (Milestone 4 — Onboarding Flow)
 
 ---
 
@@ -283,9 +283,25 @@ FinanceHer is designed for **anyone** seeking to improve their financial health.
 
 **Transitions:** Tab switching is animated (`fade-in`). View changes preserve scroll position.
 
+### 6.3 Onboarding Flow (`/onboarding`)
+
+**Status:** ✅ Built
+
+**Layout:** Multi-step wizard layout with sticky header (progress indicator & save/exit), centered form body, and site footer.
+
+**Sections:**
+- **Header** — FinanceHer brand logo, progress bar showing percentage completion, and "Save & Exit" button that returns to the homepage.
+- **Steps 1-4 (Career & Balance Sheet)** — Occupation text input, net monthly income, total fixed expenses, liquid savings, and liabilities.
+- **Step 5 (Household)** — Button group indicating total dependents.
+- **Step 6 (Goals)** — Selection list for financial priorities (Home, Retirement, Travel, Security).
+- **Step 7 (Investing)** — Choice cards outlining stock market experience (New, Some, Confident).
+- **Step 8 (Risk Tolerance)** — Dynamic range slider (1 to 5) with live category feedback.
+- **Step 9 (Tailored Recommendations)** — Interactive success view showing computed savings or debt relief strategies.
+- **Footer** — Standard copyright, privacy policy, terms of service, and contacts.
+
 ---
 
-### 6.2 Dashboard (`/dashboard`) *(planned)*
+### 6.4 Dashboard (`/dashboard`) *(planned)*
 
 **Status:** 🔲 Not built
 
@@ -334,6 +350,7 @@ FinanceHer is designed for **anyone** seeking to improve their financial health.
 - [x] Dark mode support
 - [x] Authentication UI (Login, Signup, Forgot Password)
 - [x] Reusable UI primitives (Button, Input, FormLabel)
+- [x] Onboarding Flow UI & wizard state orchestration
 - [x] Service layer stubs (auth.service.ts)
 - [x] Accessibility baseline (WCAG 2.1 AA)
 - [ ] Backend: Auth API (JWT + refresh tokens)

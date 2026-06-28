@@ -1,7 +1,7 @@
 # FinanceHer — Learning Document
 
 > **Living Document** — Every implementation milestone adds concepts, explanations, interview questions, and lessons.  
-> Last updated: 2026-06-28 (Milestone 3 — Landing Page)
+> Last updated: 2026-06-28 (Milestone 4 — Onboarding Flow)
 > Audience: The primary developer maintaining and extending FinanceHer.
 
 ---
@@ -11,11 +11,12 @@
 1. [Milestone 1 — Project Scaffold & Auth UI](#milestone-1--project-scaffold--auth-ui)
 2. [Milestone 2 — CSS Build Fix & Next.js Best Practices](#milestone-2--css-build-fix--nextjs-best-practices)
 3. [Milestone 3 — Landing Page Refactor](#milestone-3--landing-page-refactor)
-4. [Interview Question Bank](#interview-question-bank)
-5. [Common Mistakes Log](#common-mistakes-log)
-6. [Alternatives Considered](#alternatives-considered)
-7. [Future Improvements](#future-improvements)
-8. [Developer Notes](#developer-notes)
+4. [Milestone 4 — Onboarding Flow Refactor](#milestone-4--onboarding-flow-refactor)
+5. [Interview Question Bank](#interview-question-bank)
+6. [Common Mistakes Log](#common-mistakes-log)
+7. [Alternatives Considered](#alternatives-considered)
+8. [Future Improvements](#future-improvements)
+9. [Developer Notes](#developer-notes)
 
 ---
 
@@ -471,6 +472,26 @@ For the goal progress indicator, a plain `<div>` with a width style is visually 
 ```
 
 Screen readers will announce: *"Paris Trip savings goal: 75% complete, progress bar"*.
+
+## Milestone 4 — Onboarding Flow Refactor
+
+### What was built?
+
+An accessible, responsive, and dynamic multi-step wizard onboarding flow at `/onboarding` using Next.js 16 client components.
+
+*   **Modular Wizard Architecture:** Dynamic rendering of 9 distinct onboarding step screens (`StepOccupationIncome` through `StepSuccess`) managed by a central parent layout.
+*   **Progressive Form State:** Consolidates state-driven inputs (e.g. occupation text, numerical income, dependent selection groups, goal checklist, experience radio lists, and a 1-5 risk slider).
+*   **Live Risk Descriptions:** Range-slider triggers dynamic descriptions updating real-time text feedback according to the selected risk rating (Conservative, Moderate, Aggressive).
+*   **Dynamic Financial Optimization Engine:** The success page computes a tailored plan summary using the user's career, net income, fixed expenses, liquid savings, and liability values to pinpoint key savings opportunities or emergency fund recommendation values.
+
+### Why was it built this way?
+
+#### Keyboard Accessibility of Custom Forms
+Standard custom-styled input groups (such as checkbox cards or radio buttons) often use `display: none` or `hidden` classes to hide native controls, which completely drops them from the document tab order. Assistive technologies and keyboard-only users cannot focus or toggle them.
+*   **Solution:** We use Tailwind's `sr-only` class to hide the native input visually but leave it in the DOM focus layout. Sibling labels utilize Tailwind peer indicators (like `peer-checked:bg-*` and `peer-focus-visible:ring-*`) to show custom selection styles only when tab-focused.
+
+#### Semantic Landmark Encapsulation
+Wizard screens are wrapped in HTML `<form>` or `<fieldset>` tags with `<legend>` structures rather than plain divs. This ensures screen readers announce the category header (e.g. "Number of dependents") before reading option names.
 
 ---
 
