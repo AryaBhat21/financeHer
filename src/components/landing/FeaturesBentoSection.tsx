@@ -125,7 +125,7 @@ export function FeaturesBentoSection() {
                 aria-valuenow={75}
                 aria-valuemin={0}
                 aria-valuemax={100}
-                aria-label="Paris Trip savings goal: 75% complete"
+                aria-label="Japan Trip savings goal: 75% complete"
                 className="w-full bg-outline-variant/30 h-2 rounded-full overflow-hidden"
               >
                 <div className="bg-primary h-full w-[75%] rounded-full" />
