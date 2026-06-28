@@ -1,0 +1,97 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ─── CSS Custom Properties ────────────────────────────── */
+/*
+ * Fonts are loaded via next/font/google in layout.tsx (Poppins, Inter)
+ * and via <link> in layout.tsx <head> (Material Symbols Outlined).
+ * Do NOT add @import url() here — it must precede @tailwind directives
+ * (CSS spec), and next/font already self-hosts and optimises the fonts.
+ *
+ * next/font automatically generates --font-inter and --font-poppins
+ * as CSS variables on <html>. Do NOT redeclare them here; doing so
+ * overwrites them with static strings and breaks font utility classes.
+ */
+:root {
+  color-scheme: light dark;
+}
+
+/* ─── Base Layer ───────────────────────────────────────── */
+@layer base {
+  *,
+  *::before,
+  *::after {
+    box-sizing: border-box;
+  }
+
+  html {
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+    scroll-behavior: smooth;
+  }
+
+  body {
+    @apply bg-surface-bright text-on-surface font-inter overflow-x-hidden;
+    @apply dark:bg-dark-surface dark:text-dark-on-surface;
+    transition: background-color 0.3s ease, color 0.3s ease;
+  }
+
+  /* Focus visible styles for accessibility */
+  :focus-visible {
+    @apply outline-2 outline-offset-2 outline-primary;
+    @apply dark:outline-dark-primary;
+  }
+
+  /* Remove focus for mouse users, keep for keyboard */
+  :focus:not(:focus-visible) {
+    outline: none;
+  }
+
+  /* Selection styling */
+  ::selection {
+    @apply bg-primary-container text-white;
+  }
+}
+
+/* ─── Material Symbols ─────────────────────────────────── */
+@layer components {
+  .material-symbols-outlined {
+    font-family: 'Material Symbols Outlined';
+    font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+    vertical-align: middle;
+    user-select: none;
+    line-height: 1;
+  }
+}
+
+/* ─── Utility Classes ──────────────────────────────────── */
+@layer utilities {
+  .font-poppins {
+    font-family: var(--font-poppins);
+  }
+
+  .font-inter {
+    font-family: var(--font-inter);
+  }
+
+  /* Scrollbar customisation */
+  .scrollbar-thin {
+    scrollbar-width: thin;
+    scrollbar-color: theme('colors.outline-variant') transparent;
+  }
+
+  .scrollbar-thin::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+
+  .scrollbar-thin::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  .scrollbar-thin::-webkit-scrollbar-thumb {
+    @apply bg-outline-variant rounded-full;
+  }
+}
