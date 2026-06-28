@@ -1,7 +1,7 @@
 # FinanceHer — Learning Document
 
 > **Living Document** — Every implementation milestone adds concepts, explanations, interview questions, and lessons.  
-> Last updated: 2026-06-28  
+> Last updated: 2026-06-28 (Milestone 3 — Landing Page)
 > Audience: The primary developer maintaining and extending FinanceHer.
 
 ---
@@ -10,11 +10,12 @@
 
 1. [Milestone 1 — Project Scaffold & Auth UI](#milestone-1--project-scaffold--auth-ui)
 2. [Milestone 2 — CSS Build Fix & Next.js Best Practices](#milestone-2--css-build-fix--nextjs-best-practices)
-3. [Interview Question Bank](#interview-question-bank)
-4. [Common Mistakes Log](#common-mistakes-log)
-5. [Alternatives Considered](#alternatives-considered)
-6. [Future Improvements](#future-improvements)
-7. [Developer Notes](#developer-notes)
+3. [Milestone 3 — Landing Page Refactor](#milestone-3--landing-page-refactor)
+4. [Interview Question Bank](#interview-question-bank)
+5. [Common Mistakes Log](#common-mistakes-log)
+6. [Alternatives Considered](#alternatives-considered)
+7. [Future Improvements](#future-improvements)
+8. [Developer Notes](#developer-notes)
 
 ---
 
@@ -329,6 +330,150 @@ When a feature leaves `experimental`, the `experimental` key for it is *ignored*
 
 ---
 
+## Milestone 3 — Landing Page Refactor
+
+### What was built?
+
+A production-ready Next.js landing page at `/` (auth page moved to `/auth`) with:
+
+- **`LandingNav`** — sticky nav with active links, mobile hamburger toggle, "Log In" + "Get Started" CTAs.
+- **`HeroSection`** — badge pill, headline, two CTAs, 4-image tilted grid using `next/image`.
+- **`FeaturesBentoSection`** — 12-column bento grid with 4 feature cards + scroll reveal animations.
+- **`CtaBanner`** — full-width CTA with decorative blobs.
+- **`SiteFooter`** — semantic footer with nav landmark.
+- **`ScrollReveal`** — reusable `IntersectionObserver` animation wrapper.
+- Auth route moved from `/` to `/auth`.
+- Hero gradient moved from inline `<style>` tag to `tailwind.config.js` `backgroundImage` token.
+- Custom `.bento-grid` CSS replaced with Tailwind `grid-cols-12`.
+
+---
+
+### Critical Bug Fixed: `data-alt` instead of `alt`
+
+The original HTML used `data-alt` on all `<img>` tags:
+```html
+<img data-alt="Professional woman..." src="...">
+```
+
+`data-alt` is a **custom HTML attribute** — browsers and screen readers completely ignore it. The actual `alt` attribute was empty (missing), meaning all images were announced as decorative to screen readers, and search engines had no image context.
+
+**Fix:** Every image now has a proper `alt` attribute with descriptive text.
+
+**Why this is a serious bug:** In a fintech app, alt text matters for:
+- **Screen reader users** — without alt text, images are invisible to them.
+- **SEO** — Google uses alt text for image indexing.
+- **WCAG 2.1 AA compliance** — meaningful images must have text alternatives.
+
+---
+
+### What concepts should I learn?
+
+#### `IntersectionObserver` API
+
+The browser's `IntersectionObserver` fires a callback when a DOM element enters or exits the viewport:
+
+```ts
+const observer = new IntersectionObserver(
+  (entries) => {
+    entries.forEach((entry) => {
+      if (entry.isIntersecting) {
+        // element is visible
+      }
+    });
+  },
+  { threshold: 0.1 } // fire when 10% of element is visible
+);
+
+observer.observe(element);
+observer.disconnect(); // clean up when done
+```
+
+**Why use it instead of scroll event?** `scroll` fires on every scroll tick (60fps = 60 events/sec), which is expensive. `IntersectionObserver` is browser-native and runs off the main thread — no performance impact.
+
+**Why disconnect after first trigger?** Once an element has animated in, it doesn't need to animate again. Disconnecting removes the observer from memory (prevents leaks).
+
+#### React `useEffect` cleanup
+
+The `ScrollReveal` component demonstrates the cleanup pattern:
+
+```tsx
+useEffect(() => {
+  const observer = new IntersectionObserver(...);
+  observer.observe(el);
+
+  return () => observer.disconnect(); // ← cleanup function
+}, []);
+```
+
+The function returned from `useEffect` is called when:
+- The component unmounts.
+- The effect re-runs (deps changed).
+
+Without cleanup, the observer would keep running even after the component is removed from the DOM — a memory leak.
+
+#### HTML Data Attributes vs Standard Attributes
+
+`data-*` attributes are for **developer-defined custom metadata** that JavaScript reads:
+```html
+<div data-user-id="123" data-role="admin">...</div>
+```
+```ts
+el.dataset.userId; // "123"
+el.dataset.role; // "admin"
+```
+
+`data-alt` is NOT an alternative to `alt`. The `alt` attribute is a **standard HTML attribute** with defined semantics: it's the text equivalent of an image for screen readers, SEO bots, and broken-image fallback display.
+
+**Rule:** Never use `data-*` for attributes that have a native HTML equivalent.
+
+#### Tailwind Config Extensions: `backgroundImage` and `gridTemplateColumns`
+
+Tailwind's theme `extend` key allows adding new utilities without replacing defaults.
+
+**`backgroundImage`** — generates `bg-*` utilities:
+```js
+// tailwind.config.js
+backgroundImage: {
+  'hero-gradient': 'radial-gradient(circle at 70% 30%, ...) ',
+}
+// Usage: className="bg-hero-gradient"
+```
+
+**`gridTemplateColumns`** — generates `grid-cols-*` utilities:
+```js
+gridTemplateColumns: {
+  12: 'repeat(12, minmax(0, 1fr))',
+}
+// Usage: className="grid-cols-12"
+```
+
+By encoding these in config rather than in a `<style>` tag or custom CSS class, they:
+- Are tree-shaken (only included if used).
+- Participate in Tailwind's responsive modifier system (`md:grid-cols-12`).
+- Are discoverable in the design system config.
+
+#### ARIA `role="progressbar"`
+
+For the goal progress indicator, a plain `<div>` with a width style is visually clear but semantically invisible:
+
+```html
+<!-- ❌ Inaccessible -->
+<div style="width: 75%; height: 8px; background: purple;"></div>
+
+<!-- ✅ Accessible -->
+<div
+  role="progressbar"
+  aria-valuenow="75"
+  aria-valuemin="0"
+  aria-valuemax="100"
+  aria-label="Paris Trip savings goal: 75% complete"
+></div>
+```
+
+Screen readers will announce: *"Paris Trip savings goal: 75% complete, progress bar"*.
+
+---
+
 ## Interview Question Bank
 
 ### Beginner Questions
@@ -506,6 +651,21 @@ function LoginForm() {
   };
 }
 ```
+
+---
+
+### Mistake 5 — `data-alt` instead of real `alt` attribute on images
+
+**What happened:** The original landing page HTML used `data-alt="..."` on every image. `data-alt` is a custom data attribute — browsers and screen readers completely ignore it. The `alt` attribute was effectively empty on all images.
+
+**Why it's wrong:** 
+- Screen readers skip images with no `alt` (or treat them as decorative).
+- Search engines have no image context for SEO.
+- WCAG 2.1 Success Criterion 1.1.1 requires a text alternative for all non-decorative images.
+
+**Fix:** Replace `data-alt` with proper `alt` text on every image.
+
+**Lesson:** `data-*` attributes are for custom JavaScript metadata only. They have zero semantic meaning to browsers, assistive technologies, or search engines. Never use them as a substitute for native HTML attributes.
 
 ---
 

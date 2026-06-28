@@ -1,7 +1,7 @@
 # FinanceHer — Product Document
 
 > **Living Document** — Updated alongside every feature, flow, or product change.  
-> Last updated: 2026-06-28
+> Last updated: 2026-06-28 (Milestone 3 — Landing Page)
 
 ---
 
@@ -257,9 +257,22 @@ FinanceHer is designed for **anyone** seeking to improve their financial health.
 
 ## 6. Screens and Flows
 
-### 6.1 Authentication Page (`/`)
+### 6.1 Landing Page (`/`)
 
 **Status:** ✅ Built
+
+**Layout:** Sticky nav, hero section, features bento grid, CTA banner, footer.
+
+**Sections:**
+- **Nav** — Logo, 4 links, "Log In" text button, "Get Started" primary CTA. Mobile hamburger with dropdown.
+- **Hero** — Badge pill, headline, two CTAs ("Start for Free" → `/auth`, "How it Works"), 4-image tilted grid.
+- **Features Bento** — 12-column grid with: Intuitive Budgeting (bar chart), Goal Tracking (progress bar), AI Insights (dark card), Financial Literacy Hub (image).
+- **CTA Banner** — Full-width card with headline, "Create Your Account" → `/auth`, "Contact Sales".
+- **Footer** — Brand, nav links, Privacy Policy, Terms, dynamic copyright year.
+
+---
+
+### 6.2 Authentication Page (`/auth`)
 
 **Layout:** Two-column card (hero panel left, forms right). Single-column on mobile.
 

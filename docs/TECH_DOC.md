@@ -1,7 +1,7 @@
 # FinanceHer — Technical Document
 
 > **Living Document** — Updated alongside every architectural change, new dependency, or implementation decision.  
-> Last updated: 2026-06-28
+> Last updated: 2026-06-28 (Milestone 3 — Landing Page)
 
 ---
 
@@ -32,9 +32,10 @@
 ```
 Browser
   └── Next.js App Router
-        ├── Server Components  →  layout.tsx, page.tsx, not-found.tsx
-        └── Client Components  →  AuthCard, LoginForm, SignupForm, ForgotPasswordForm,
-                                   AuthHeroPanel, AuthTabs, OAuthSection
+        ├── Server Components  →  layout.tsx, page.tsx (landing), auth/page.tsx, not-found.tsx,
+        │                          HeroSection, FeaturesBentoSection, CtaBanner, SiteFooter
+        └── Client Components  →  LandingNav, ScrollReveal, AuthCard, LoginForm, SignupForm,
+                                   ForgotPasswordForm, AuthTabs, OAuthSection
 ```
 
 **Key architectural decisions:**
@@ -85,18 +86,29 @@ financeHer/
 │   ├── app/                     # Next.js App Router
 │   │   ├── globals.css          # Tailwind directives + global base layer
 │   │   ├── layout.tsx           # Root layout: fonts, metadata, providers
-│   │   ├── page.tsx             # Auth page at route "/"
-│   │   └── not-found.tsx        # Custom 404 page
+│   │   ├── page.tsx             # Landing page at route "/"
+│   │   ├── not-found.tsx        # Custom 404 page
+│   │   └── auth/
+│   │       └── page.tsx         # Auth page at route "/auth"
 │   │
 │   ├── components/
 │   │   ├── ui/                  # Design-system primitives (reusable across all features)
 │   │   │   ├── Button.tsx
 │   │   │   ├── Input.tsx
 │   │   │   ├── FormLabel.tsx
+│   │   │   ├── ScrollReveal.tsx # IntersectionObserver scroll animation wrapper
 │   │   │   └── index.ts         # Barrel export
 │   │   │
 │   │   ├── layout/              # Page-level structural components
-│   │   │   ├── Header.tsx
+│   │   │   ├── Header.tsx       # Auth-page sticky header
+│   │   │   ├── SiteFooter.tsx   # Shared site footer
+│   │   │   └── index.ts
+│   │   │
+│   │   ├── landing/             # Landing page feature components
+│   │   │   ├── LandingNav.tsx   # Landing navigation (different from auth Header)
+│   │   │   ├── HeroSection.tsx
+│   │   │   ├── FeaturesBentoSection.tsx
+│   │   │   ├── CtaBanner.tsx
 │   │   │   └── index.ts
 │   │   │
 │   │   └── auth/                # Auth feature components (collocated)
@@ -280,6 +292,74 @@ financeHer/
 **Integration point:** Calls `initiateOAuthFlow(provider)` from `auth.service.ts`.
 
 **Configuration:** OAuth provider list is driven by `OAUTH_PROVIDERS` constant — adding a new provider requires only a new entry in `constants/index.ts`.
+
+---
+
+### 3.12 `ScrollReveal` (`src/components/ui/ScrollReveal.tsx`)
+
+**Purpose:** Client-side wrapper that animates children into view when they scroll into the viewport. Replaces the inline `<script>` IntersectionObserver from the original landing page HTML.
+
+**Props:**
+
+| Prop | Type | Default | Description |
+|---|---|---|---|
+| `children` | `ReactNode` | — | Content to reveal |
+| `className` | `string` | — | Applied to the wrapper div |
+| `delay` | `number` | `0` | ms before animation starts (for stagger effects) |
+
+**How it works:** Starts with `opacity-0 translate-y-8`. Once the IntersectionObserver fires (threshold: 10% visible), transitions to `opacity-100 translate-y-0` with a 700ms duration. Observer disconnects after first trigger (one-shot).
+
+**Why extracted:** Scroll reveal is reusable across any landing section, dashboard card, or future page. Centralising the observer logic prevents duplicate observers and ensures consistent animation behaviour.
+
+---
+
+### 3.13 `LandingNav` (`src/components/landing/LandingNav.tsx`)
+
+**Purpose:** Landing-page-specific navigation. Different from auth `Header` — has active link state, "Log In" + "Get Started" CTAs, and a working mobile hamburger.
+
+**Why separate from `Header`:** The auth header is minimal (3 links, no CTA buttons). The landing nav has 4 links, 2 CTA buttons, active state logic, and mobile menu toggle state — sharing them would require complex conditional props.
+
+**State:** `menuOpen: boolean` (local — controls mobile dropdown).
+
+---
+
+### 3.14 `HeroSection` (`src/components/landing/HeroSection.tsx`)
+
+**Purpose:** Above-the-fold hero with badge pill, headline, CTAs, and a 4-image tilted grid.
+
+**Images:** Driven by a typed `HERO_IMAGES` array — adding/changing images requires only editing the data, not the JSX.
+
+**Key fix:** Original HTML used `data-alt` (a custom attribute that is invisible to screen readers) instead of the standard `alt` attribute. Fixed here with proper descriptive alt text.
+
+**Accessibility:** Image grid is `aria-hidden="true"` (decorative), badge pill uses `role="img"` with `aria-label`.
+
+---
+
+### 3.15 `FeaturesBentoSection` (`src/components/landing/FeaturesBentoSection.tsx`)
+
+**Purpose:** 4-card bento grid showcasing Budgeting, Goal Tracking, AI Insights, and Literacy Hub.
+
+**Grid:** Uses Tailwind `grid-cols-12` + `col-span-*` — replaces the custom `.bento-grid { grid-template-columns: repeat(12, 1fr) }` CSS class from the original.
+
+**Accessibility:** `role="progressbar"` on goal indicator with `aria-valuenow/min/max`. `BarChart` has `role="img"` with descriptive `aria-label`.
+
+---
+
+### 3.16 `CtaBanner` (`src/components/landing/CtaBanner.tsx`)
+
+**Purpose:** Full-width call-to-action section with headline and two action buttons.
+
+**Accessibility:** Decorative blobs have `aria-hidden="true" pointer-events-none`. "Contact Sales" links to a mailto: address.
+
+---
+
+### 3.17 `SiteFooter` (`src/components/layout/SiteFooter.tsx`)
+
+**Purpose:** Shared site footer with brand, nav links, and copyright.
+
+**Semantic HTML:** Uses `role="contentinfo"` (the `<footer>` role), nav landmark, and `<ul>` list for links.
+
+**Dynamic copyright:** `new Date().getFullYear()` — never needs manual updating.
 
 ---
 
@@ -520,8 +600,10 @@ User interaction
 | Optimisation | How | File |
 |---|---|---|
 | Font loading | `next/font/google` self-hosts fonts — zero external requests, zero CLS | `layout.tsx` |
-| Hero image | `next/image` with `priority`, `fill`, `sizes` — avoids layout shift, LCP optimised | `AuthHeroPanel.tsx` |
-| Zero JS on static panels | `AuthHeroPanel`, `Header` are Server Components — no JS sent for them | Multiple |
+| Auth hero image | `next/image` with `priority`, `fill`, `sizes` — avoids layout shift, LCP optimised | `AuthHeroPanel.tsx` |
+| Landing images | `next/image` with `fill`, `sizes` on all 4 hero grid images + literacy hub image | `HeroSection.tsx`, `FeaturesBentoSection.tsx` |
+| Zero JS on static panels | `HeroSection`, `FeaturesBentoSection`, `CtaBanner`, `SiteFooter` are Server Components | Multiple |
+| Scroll reveal | `ScrollReveal` uses `IntersectionObserver` — animates only when in viewport, no polling | `ScrollReveal.tsx` |
 | Tailwind purging | Tailwind v3 scans all `src/**/*.{ts,tsx}` files and removes unused classes | `tailwind.config.js` |
 | CSS specificity | `cn()` + `tailwind-merge` prevents duplicate/conflicting CSS rules in output | `lib/utils.ts` |
 
@@ -550,6 +632,8 @@ Encodes the complete FinanceHer design system:
 - **Spacing:** Named spacing tokens (`stack-lg`, `stack-md`, `gutter`, etc.).
 - **Animations:** `fade-in`, `slide-up` keyframe animations.
 - **Shadows:** `auth-card`, `primary-glow` semantic shadow tokens.
+- **`backgroundImage`:** `hero-gradient` — replaces the `.hero-gradient` inline `<style>` class from the original HTML. Usage: `className="bg-hero-gradient"`.
+- **`gridTemplateColumns`:** `12` — enables `grid-cols-12` for the bento layout. Replaces the custom `.bento-grid` CSS class.
 
 ### `next.config.js`
 
