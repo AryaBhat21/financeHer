@@ -6,3 +6,5 @@ export type { ButtonProps, ButtonVariant, ButtonSize } from './Button';
 
 export { FormLabel, FormField } from './FormLabel';
 export type { FormLabelProps, FormFieldProps } from './FormLabel';
+
+export { ScrollReveal } from './ScrollReveal';
