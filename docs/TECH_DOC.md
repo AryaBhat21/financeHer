@@ -193,6 +193,7 @@ financeHer/
 │   │   ├── expense.ts           # Expenses module types (AI input layer)
 │   │   ├── goal.ts              # Goals module types (AI input layer)
 │   │   ├── assistant.ts         # AI Assistant module types
+│   │   ├── features.ts          # Feature extraction types
 │   │   └── index.ts
 │   │
 │   ├── constants/
@@ -202,7 +203,8 @@ financeHer/
 │   │   └── assistant.mock.ts    # Mock data for AI Assistant
 │   │
 │   └── lib/                     # Pure utility functions
-│       └── utils.ts             # cn() helper
+│       ├── utils.ts             # cn() helper
+│       └── features.ts          # Financial feature extraction logic
 │
 ├── .gitignore
 ├── .eslintrc.json
@@ -605,9 +607,31 @@ All state is currently **local component state** (`useState`). No global state l
 | Active conversation ID | `AssistantPage` | `useState<string>` |
 | Chat input state (text, mic, send) | `AssistantPage` | `useState<ChatInputState>` |
 
-### 4.2 Planned Global State (for Dashboard+)
+### 4.2 LocalStorage Persistence (Demo Mode)
 
-When the Dashboard is built, user session and financial data will need global state. Planned options:
+To support a fully functioning single-user demo environment without requiring an active backend or database, the application employs client-side persistence powered by `localStorage`.
+
+*   **Helper Module:** `src/lib/storage.ts` provides type-safe load/save/remove functions that gracefully handle NextJS Server-Side Rendering (SSR) environment checks (ensuring `window` is defined before accessing `localStorage`).
+*   **Active Persistence Schema:**
+    *   **User Onboarding Profile (`financeher_user_profile`):** Stored upon final wizard completion in `StepSuccess` / `handleComplete`.
+    *   **Transactions & Expenses (`financeher_expenses`):** List of expense/income transactions, loaded in client `useEffect` hooks and saved on creation or deletion.
+    *   **Savings Goals (`financeher_goals`):** Savings milestones and targets, loaded in client `useEffect` hooks and updated/deleted dynamically with recalculation.
+
+### 4.3 Financial Feature Extraction Layer (`src/lib/features.ts`)
+
+A dedicated feature extraction engine aggregates and processes the three client-side data stores to calculate essential ratios and metrics.
+
+- **Metric Computations:**
+  - **Savings Rate:** Computes both estimated profile-based rate `(Income - Fixed Expenses) / Income` and actual transaction-based rate `(Actual Income - Actual Expenses) / Actual Income`.
+  - **Debt-to-Income Ratio (DTI):** Computes total debt-to-monthly income, total debt-to-annual income, estimated monthly debt service ratio (using a standard 2% minimum payment baseline of total debts), and actual loan/EMI expense transactions ratio.
+  - **Expense Ratio:** Computes profile fixed cost ratio and actual overall expense ratio.
+  - **Emergency Fund Coverage:** Calculates months of expenses covered by liquid savings using both profile fixed expenses and actual monthly expense aggregates.
+  - **Goal Progress:** Computes total target amounts, overall savings rate, active vs. completed goals count, and maps goals to detailed view models containing completion percentages, remaining amounts, track status, and months remaining.
+- **Consumption Context:** This layer serves as the structured RAG input context for future Gemini LLM calls, and is consumed by local widgets to display dashboard financial health.
+
+### 4.4 Planned Global State (for Dashboard+)
+
+When the production dashboard and APIs are ready, client-side state will transition from `localStorage` to state management hooks:
 
 | Option | When to adopt |
 |---|---|
@@ -615,7 +639,7 @@ When the Dashboard is built, user session and financial data will need global st
 | Zustand | Client-side financial data cache |
 | TanStack Query | Server state (API responses, caching, refetch) |
 
-### 4.3 Data Flow
+### 4.5 Data Flow
 
 ```
 User interaction

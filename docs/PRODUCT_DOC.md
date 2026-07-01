@@ -457,9 +457,10 @@ FinanceHer is designed for **anyone** seeking to improve their financial health.
 ### Version 1.0 — Core Product
 
 - [x] Dashboard with financial overview
-- [x] Expense tracker (manual entry) — UI complete
-- [x] Goal planner — UI complete
+- [x] Expense tracker (manual entry) — UI complete, persistent to local storage
+- [x] Goal planner — UI complete, persistent to local storage
 - [x] Financial health score
+- [x] Local storage data persistence helper (onboarding profile, transactions, goals)
 - [ ] User settings & profile
 
 ### Version 2.0 — Intelligence Layer

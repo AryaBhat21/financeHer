@@ -1377,3 +1377,73 @@ When the Gemini RAG pipeline is ready:
 3. **Context-Aware RAG:**
    The backend RAG agent queries the user's dashboard expenses, goals, and fixed commitments to build context before sending the prompt to Gemini. The returned payload returns specific action triggers (like `Trim my budget` or `Adjust Goals`) that deep-link directly back to other pages.
 
+---
+
+## Milestone 9 — LocalStorage Data Persistence
+
+### What was built?
+
+Created a client-side state synchronization layer using `localStorage` to allow a fully operational, offline interactive prototype:
+
+- **Storage Utility:** `src/lib/storage.ts` featuring `saveToStorage`, `loadFromStorage`, and `removeFromStorage` helpers wrapped in `typeof window !== 'undefined'` safety boundaries.
+- **Onboarding Persistence:** Updated the Onboarding Page wizard to store the completed user profile under `financeher_user_profile` upon final submission.
+- **Stateful Expenses Tracking:** Replaced static mock transactions with client state loaded from `financeher_expenses` (falling back to mock data on first load). Added support for adding new transactions (constructing complete models) and deleting transactions.
+- **Stateful Goals Planning:** Enabled full adding and deleting of goal entries persisted to `financeher_goals` (falling back to mock data).
+- **Dynamic Summaries & Aggregates:** Wrote pure functions to derive monthly spending summaries, category allocation percentages, savings rates, and next milestones in real-time, removing calculated data redundancy.
+
+---
+
+### Why was it built this way?
+
+#### Hydration Safety in SSR
+
+Next.js Server-Side Rendering compiles pages on Node.js before delivering HTML to the browser.
+If we load `localStorage` directly in `useState` initialization:
+1. Node.js has no `window` object -> throws compilation error.
+2. If we guard it (e.g. `typeof window !== 'undefined' ? localStorage... : []`), the server-rendered HTML will output `[]`, whereas the client might load 10 items.
+3. React throws a **hydration mismatch warning** because the initial client DOM does not match the server-rendered DOM.
+
+**Solution:**
+Always initialize state to a static fallback (e.g. empty array or default mocks). Use a client-side `useEffect` that fires once after mounting (`setMounted(true)`) to fetch client-side data and re-render safely.
+
+#### Pure Derived State
+
+Instead of storing pre-calculated aggregates (like total expenses, average savings rate, progress percentages) in states or separate local storage entries, we compute them dynamically during render using pure derivation functions (`deriveMonthlySummary` and `deriveGoalsOverview`).
+This prevents **state sync bugs** (e.g., deleting an expense but forgetting to subtract its amount from a separate `totalExpenses` state variable).
+
+#### Loose Component Coupling
+
+By refactoring components like `AddExpenseModal`, `TransactionTable`, `GoalCard`, and `AddGoalModal` to accept callback props (`onAdd`, `onDelete`) rather than doing database/storage writes inside the components:
+1. The components remain pure UI renderers.
+2. They are easy to unit-test.
+3. The storage mechanism is centralized in the page routes. When migrating from `localStorage` to REST/GraphQL APIs, zero changes will be required on these presentation components.
+
+---
+
+## Milestone 10 — Feature Extraction Layer
+
+### What was built?
+
+Created the `src/lib/features.ts` module and `src/types/features.ts` data contract to aggregate and analyze the local storage datasets:
+
+- **Type Definition (`src/types/features.ts`):** Established structure for saving, DTI, expenses, and goals progress.
+- **Pure Extractor (`extractFinancialFeaturesFromData`):** A pure utility that maps profile attributes, transactions, and goals to standard personal finance KPIs.
+- **State Hydrator (`extractFinancialFeatures`):** Wrapper that reads local storage values and returns computed stats.
+- **Validation Script (`C:\Users\aryab\.gemini\antigravity\brain\b0a081eb-64e5-4474-aa2d-0b73629581a4\scratch\test_features.ts`):** Validated calculations with assertion suites matching personal finance standards.
+
+### Why was it built this way?
+
+#### Separating Estimated (Profile) vs. Actual (Transactions) Metrics
+
+A common pitfall in budgeting engines is confusing the user's *estimated plan* (from onboarding) with their *actual behavior* (from banking transaction data). By extracting both profile-based (e.g. `profileDti`, `profileRate`) and transaction-based metrics (e.g. `actualRate`, `actualDebtPaymentsRatio`), the AI Assistant can highlight gaps: e.g. *"You planned a 60% savings rate during onboarding, but your actual transaction history shows a 35% savings rate. Let's adjust."*
+
+#### Handling Missing / Zero Inputs Gracefully
+
+In personal finance calculations, dividing by zero (e.g. when income or expenses are not yet set) yields `Infinity` or `NaN`. The feature extraction layer ensures:
+1. Division operations check denominators.
+2. Form fields are coerced into standard numbers.
+3. Empty arrays/null states return default structures with `meta.hasProfile: false`, avoiding runtime page crashes.
+
+#### Transaction Keyword Analysis for EMIs
+
+In the absence of dedicated bank account integrations, recurring debts are often intermingled in general transactional logs. The extractor scans transaction names and notes for common keywords (`loan`, `emi`, `debt`, `mortgage`, `repayment`) to estimate actual monthly debt service dynamically, enabling a real-time DTI score check.
