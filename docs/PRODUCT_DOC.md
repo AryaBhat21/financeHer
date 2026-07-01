@@ -1,7 +1,7 @@
 # FinanceHer — Product Document
 
 > **Living Document** — Updated alongside every feature, flow, or product change.  
-> Last updated: 2026-06-28 (Milestone 4 — Onboarding Flow)
+> Last updated: 2026-07-01 (Milestone 8 — AI Assistant Page)
 
 ---
 
@@ -201,25 +201,72 @@ FinanceHer is designed for **anyone** seeking to improve their financial health.
 
 ---
 
-### 5.2 Dashboard *(planned)*
+### 5.2 Dashboard
 
 **Purpose:** Provide a financial health overview at a glance.
 
 **User problem solved:** Users don't know if their finances are healthy without checking multiple places.
 
-**Acceptance criteria (planned):**
-- [ ] Shows net worth, monthly income, monthly expenses.
-- [ ] Shows active goals with progress.
-- [ ] Shows AI-generated weekly insight.
-- [ ] Responsive across mobile and desktop.
+**Current state:** ✅ UI complete. Backend integration pending.
+
+**Acceptance criteria:**
+- [x] Shows monthly income, monthly expenses, health score.
+- [x] Shows active goals with progress.
+- [x] Shows AI assistant widget (placeholder).
+- [x] Responsive across mobile and desktop.
+- [ ] Real-time data from backend API.
 
 ---
 
-### 5.3 Expense Tracker *(planned)*
+### 5.3 Expense Tracker
 
-**Purpose:** Log, categorise, and visualise spending.
+**Purpose:** Log, categorise, visualise, and derive insights from spending.
 
-**User problem solved:** Without visibility into spending, users can't change their habits.
+**User problem solved:** Without visibility into spending patterns, users cannot change their habits. Static bank statements don't surface trends, category distributions, or anomalies — FinanceHer does.
+
+**User flow:**
+1. User lands on `/expenses` from sidebar or dashboard CTA.
+2. Overview cards show: Monthly Spend, Savings This Month, Top Category, Budget Health.
+3. 6-month trend chart shows income vs. expense history.
+4. Category donut chart shows spending distribution.
+5. Transaction table: search, filter by category/status, sort by date/amount.
+6. Insights panel: 4 rule-based insights (will become AI-generated).
+7. "Add Transaction" button opens the modal form.
+
+**Current state:** ✅ UI complete with mock data. Backend integration pending.
+
+**Acceptance criteria:**
+- [x] Expense overview cards (monthly spend, savings, top category, budget health).
+- [x] 6-month trend chart (income vs. expenses bar chart).
+- [x] Category-wise spending donut chart with legend.
+- [x] Transaction table with search, category filter chips, status filter.
+- [x] Sortable columns (date, amount).
+- [x] Pagination (8 items per page).
+- [x] Smart Insights panel with AI-ready data structure.
+- [x] Add Expense modal (name, amount, date, category, payment method, note, recurring toggle).
+- [x] Responsive across mobile, tablet, and desktop.
+- [x] Accessible (ARIA roles, keyboard navigation, focus management).
+- [ ] Backend: POST /api/expenses (create transaction).
+- [ ] Backend: GET /api/expenses/transactions (paginated list).
+- [ ] Backend: GET /api/expenses/summary (monthly aggregation).
+- [ ] AI: GET /api/insights (Gemini-generated insights from user data).
+- [ ] Bank account linking (Plaid / Razorpay) for auto-import.
+- [ ] ML-based automatic categorisation.
+
+**Data model for AI (structured as `MonthlySummary`):**
+- `totalExpenses`, `totalIncome`, `netCashFlow` → cash flow analysis.
+- `savingsRate` (0–1) → savings rate tracking.
+- `expenseDeltaPercent` → month-over-month trend.
+- `categoryBreakdowns[]` → category distribution for budget rebalancing.
+- `transactions[]` with `isoDate`, `category`, `isRecurring` → pattern detection.
+- `ExpenseInsight[]` → AI output shape (rule-based stubs until Gemini is connected).
+
+**Future improvements:**
+- Recurring expense auto-detection (ML).
+- Budget alerts (push notification when ≥ 90% of budget used).
+- Export to CSV / PDF.
+- Split expenses (shared household mode).
+- Merchant logo enrichment (Clearbit / Brandfetch API).
 
 ---
 
@@ -311,21 +358,71 @@ FinanceHer is designed for **anyone** seeking to improve their financial health.
 
 ---
 
-### 6.3 Expense Tracker (`/expenses`) *(planned)*
+### 6.5 Expense Tracker (`/expenses`)
 
-**Status:** 🔲 Not built
+**Status:** ✅ Built (mock data — backend integration pending)
+
+**Layout:** Desktop sidebar navigation + main canvas. Mobile: hamburger drawer + floating action button.
+
+**Sections:**
+- **Overview Cards** — Monthly Spend (with MoM delta), Savings This Month, Top Category, Budget Health (progress bar).
+- **6-Month Trend Chart** — Side-by-side income vs. expense bars, avg. savings row, legend.
+- **Category Breakdown Donut** — SVG donut chart with top 5 categories + legend with amount and %.
+- **Transaction Table** — Full search + category chip filter + status dropdown + sortable headers + pagination.
+- **Smart Insights Panel** — 4 severity-coded cards (warning, success, info, tip) with AI-ready `isAIGenerated` flag.
+- **Add Transaction Modal** — Name, amount, date, category, payment method, note, recurring toggle. Integration point marked.
 
 ---
 
-### 6.4 Goal Planner (`/goals`) *(planned)*
+### 6.4 Goal Planner (`/goals`)
 
-**Status:** 🔲 Not built
+**Status:** ✅ Built (mock data — backend integration pending)
 
----
+**Layout:** Desktop sidebar + main canvas. Mobile: hamburger drawer + floating action button.
 
-### 6.5 AI Assistant (`/assistant`) *(planned)*
+**Sections:**
+- **Overview Cards** — Total Saved, Active Goals (with next milestone), Monthly Commitment, Portfolio Progress (progress bar).
+- **Goal Progress Race** — Horizontal bars ranking all goals by completion %, with on-track / behind indicators.
+- **AI Insights Panel** — 4 severity-coded rule-based insights (success, tip, info, warning) with `isAIGenerated` flag.
+- **Active Goals Grid** — 2-column bento of `GoalCard` components, filterable by category chip and priority.
+- **Goal Card** — Icon, description, current vs. target amounts, animated progress bar (dynamic accent colour per goal), on-track / projected completion date, Adjust Goal CTA.
+- **AI Acceleration Banner** — 3 mini-stats, allocation breakdown panel, Optimise CTA (AI integration point).
+- **Add Goal Modal** — Name, description, category, target amount, current amount, monthly contribution, target date, priority (High / Medium / Low toggle), note.
 
-**Status:** 🔲 Not built
+**Goal Categories:** Emergency Fund, Home, Travel, Retirement, Education, Vehicle, Wedding, Health, Business, Other.
+
+**Data model for AI (structured as `GoalViewModel`):**
+- `completionPercent`, `remainingAmount` → current gap to fill.
+- `monthsRemaining`, `projectedCompletionDate` → AI-computed forward projection.
+- `isOnTrack` → whether projected date meets target date.
+- `GoalInsight[]` → AI output shape with `isAIGenerated` flag for rule-based → AI migration.
+- `GoalsOverview.savingsAllocationRate` → overall savings efficiency signal.
+
+**Future improvements:**
+- Goal contribution auto-debit reminders.
+- Reallocation wizard (AI-suggested fund shifting between goals).
+- Goal vs. actual contribution tracking.
+- Progress celebration milestones (25%, 50%, 75%, 100%).
+- Export goal plan to PDF.
+
+### 6.5 AI Assistant (`/assistant`)
+
+**Status:** ✅ Built (mock data — backend integration pending)
+
+**Layout:** Desktop sidebar + main chat grid. Mobile: hamburger drawer + collapsible history slider.
+
+**Sections:**
+- **Collapsible History Panel** — Left-hand sidebar showing list of past conversation sessions with message counts, preview text, display dates, and category icons/colours.
+- **Main Chat Window** — Scrollable message feed with disclaimer banner, text bubble formatting, embedded data cards (Metric and Comparison cards), and suggested action chips.
+- **Sticky Footer Input Area** — Horizontal prompt suggestions, auto-expanding textarea, mic button with recording animation, and send button with loading state.
+- **Proactive Insights Panel** — Right-hand sidebar featuring 4 severity-coded rule-based recommendations across various modules (expenses, goals, budget) to nudge users toward better financial health.
+
+**Data contracts defined (`src/types/assistant.ts`):**
+- `AIMessage` — Support for text bubbles, embedded structured card renderers, and custom follow-up CTA actions.
+- `ConversationSession` — Representation of history list.
+- `SuggestedPrompt` — Prompt chip data.
+- `AIRecommendation` — Proactive advice.
+- `isAIGenerated` / `isStreaming` flags for future Gemini streaming integration.
 
 ---
 
@@ -360,14 +457,15 @@ FinanceHer is designed for **anyone** seeking to improve their financial health.
 ### Version 1.0 — Core Product
 
 - [x] Dashboard with financial overview
-- [ ] Expense tracker (manual entry)
-- [ ] Goal planner
+- [x] Expense tracker (manual entry) — UI complete
+- [x] Goal planner — UI complete
 - [x] Financial health score
 - [ ] User settings & profile
 
 ### Version 2.0 — Intelligence Layer
 
-- [ ] AI assistant (RAG pipeline on user data)
+- [x] AI assistant (manual interface) — UI complete
+- [ ] AI assistant RAG pipeline & Gemini connection
 - [ ] Financial literacy hub (curated content + quizzes)
 - [ ] Bank account linking (Plaid / Razorpay integration)
 - [ ] Automated expense categorisation (ML)

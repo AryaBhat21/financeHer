@@ -1,7 +1,7 @@
 # FinanceHer — Technical Document
 
 > **Living Document** — Updated alongside every architectural change, new dependency, or implementation decision.  
-> Last updated: 2026-06-28 (Milestone 5 — Dashboard Page)
+> Last updated: 2026-07-01 (Milestone 8 — AI Assistant Page)
 
 ---
 
@@ -92,8 +92,17 @@ financeHer/
 │   │   │   └── page.tsx         # Auth page at route "/auth"
 │   │   ├── onboarding/
 │   │   │   └── page.tsx         # Onboarding wizard page at "/onboarding"
-│   │   └── dashboard/
-│   │       └── page.tsx         # Dashboard page at route "/dashboard"
+│   │   ├── dashboard/
+│   │   │   └── page.tsx         # Dashboard page at route "/dashboard"
+│   │   ├── expenses/
+│   │   │   ├── layout.tsx       # /expenses layout with SEO metadata
+│   │   │   └── page.tsx         # Expense tracker page at route "/expenses"
+│   │   ├── goals/
+│   │   │   ├── layout.tsx       # /goals layout with SEO metadata
+│   │   │   └── page.tsx         # Goal planner page at route "/goals"
+│   │   └── assistant/
+│   │       ├── layout.tsx       # /assistant layout with SEO metadata
+│   │       └── page.tsx         # AI Assistant page at route "/assistant"
 │   │
 │   ├── components/
 │   │   ├── ui/                  # Design-system primitives (reusable across all features)
@@ -140,6 +149,32 @@ financeHer/
 │   │   │   ├── DashboardFooter.tsx
 │   │   │   └── index.ts
 │   │   │
+│   │   ├── expenses/            # Expenses feature components
+│   │   │   ├── ExpenseOverviewCards.tsx
+│   │   │   ├── CategoryBreakdownChart.tsx
+│   │   │   ├── SpendingTrendChart.tsx
+│   │   │   ├── TransactionTable.tsx
+│   │   │   ├── InsightsPanel.tsx
+│   │   │   ├── AddExpenseModal.tsx
+│   │   │   └── index.ts
+│   │   │
+│   │   ├── goals/               # Goals feature components
+│   │   │   ├── GoalsOverviewCards.tsx  # 4 summary KPI cards
+│   │   │   ├── GoalCard.tsx            # Individual goal card (progress bar, accent colour)
+│   │   │   ├── GoalProgressRace.tsx    # Horizontal bar chart ranking goals
+│   │   │   ├── GoalInsightsPanel.tsx   # AI-ready insights panel
+│   │   │   ├── GoalAIBanner.tsx        # Full-width AI CTA section
+│   │   │   ├── AddGoalModal.tsx        # Add goal form modal
+│   │   │   └── index.ts
+│   │   │
+│   │   ├── assistant/           # AI Assistant feature components
+│   │   │   ├── ChatMessage.tsx         # Message bubble (renders rich Metric/Comparison cards)
+│   │   │   ├── AIRecommendationsPanel.tsx # Sidebar recommendations list
+│   │   │   ├── SuggestedPrompts.tsx    # Horizontal chip strip
+│   │   │   ├── ConversationHistory.tsx # Collapsible session list sidebar
+│   │   │   ├── ChatInputBar.tsx        # Auto-grow textarea + Voice + Send
+│   │   │   └── index.ts
+│   │   │
 │   │   └── auth/                # Auth feature components (collocated)
 │   │       ├── AuthCard.tsx     # Orchestrator: manages view state
 │   │       ├── AuthHeroPanel.tsx
@@ -153,12 +188,18 @@ financeHer/
 │   ├── services/                # API call layer (one file per domain)
 │   │   └── auth.service.ts
 │   │
-│   ├── types/                   # TypeScript interfaces and types
+│   ├── types/
 │   │   ├── auth.ts
+│   │   ├── expense.ts           # Expenses module types (AI input layer)
+│   │   ├── goal.ts              # Goals module types (AI input layer)
+│   │   ├── assistant.ts         # AI Assistant module types
 │   │   └── index.ts
 │   │
-│   ├── constants/               # App-wide constants (no business logic)
-│   │   └── index.ts
+│   ├── constants/
+│   │   ├── index.ts
+│   │   ├── expense.mock.ts      # Mock data for Expenses
+│   │   ├── goal.mock.ts         # Mock data for Goals
+│   │   └── assistant.mock.ts    # Mock data for AI Assistant
 │   │
 │   └── lib/                     # Pure utility functions
 │       └── utils.ts             # cn() helper
@@ -429,7 +470,110 @@ financeHer/
 
 ---
 
-## 4. State Management
+### 3.20 `Expenses Components` (`src/components/expenses/*`)
+
+**Purpose:** Modular visualization, interaction, and data-entry components for the Expense Tracker page (`/expenses`). This module is the primary AI input layer — all data types are designed to be consumed by the future Gemini RAG pipeline.
+
+#### `ExpenseOverviewCards`
+- **Purpose:** 4 summary stat cards — Monthly Spend, Savings This Month, Top Category, Budget Health.
+- **Props:** `summary: MonthlySummary`
+- **AI input:** `expenseDeltaPercent`, `savingsRate`, `budgetUtilisationPercent`.
+- **Dark mode:** Full.
+
+#### `CategoryBreakdownChart`
+- **Purpose:** SVG donut chart for top-5 spending categories + legend with amount and %.
+- **Props:** `breakdowns: CategoryBreakdown[]`, `totalExpenses: number`
+- **How the SVG works:** Each segment is a `<circle>` with `strokeDasharray` encoding its percentage. `strokeDashoffset` positions the segment after the previous one. The circumference of a circle with `r=15.915` ≈ 100, so `dasharray === percentage` directly.
+- **AI input:** `CategoryBreakdown[]` — primary input for budget rebalancing recommendations.
+
+#### `SpendingTrendChart`
+- **Purpose:** 6-month income vs. expense side-by-side bar chart + average savings row.
+- **Data:** `MOCK_MONTHLY_TREND` from `constants/expense.mock.ts`. Replace with API call.
+- **AI input:** Month-over-month deltas feed the trend analysis.
+
+#### `TransactionTable`
+- **Purpose:** Full-featured transaction table with search, category chips, status dropdown, sortable columns, and client-side pagination.
+- **State:** `filters: ExpenseFilters` (local), `page: number` (local). All filtering/sorting is done via `useMemo` — no external library.
+- **Pagination:** 8 items per page (`ITEMS_PER_PAGE`). Renders numbered page buttons dynamically.
+- **AI input:** All raw `Transaction[]` data flows through here; the AI pattern detector will use the same array.
+
+#### `InsightsPanel`
+- **Purpose:** Displays AI-ready insights with severity coding (warning, success, info, tip).
+- **Props:** `insights: ExpenseInsight[]`
+- **AI INTEGRATION POINT:** `isAIGenerated` flag on each insight. Currently `false` (rule-based stubs). Will become `true` when Gemini is connected. Replace `MOCK_INSIGHTS` with `GET /api/insights`.
+
+#### `AddExpenseModal`
+- **Purpose:** Full-screen-dimmed modal form for adding a transaction.
+- **Props:** `isOpen: boolean`, `onClose: () => void`
+- **State:** `form: AddExpenseFormData` (local), `isLoading: boolean` (local).
+- **BACKEND INTEGRATION POINT:** `handleSubmit` currently calls `console.info`. Replace with `expenseService.createExpense(form)`.
+- **Accessibility:** `role="dialog"`, `aria-modal="true"`, `aria-labelledby`, keyboard toggle on recurring switch.
+
+---
+
+### 3.21 `Goals Components` (`src/components/goals/*`)
+
+**Purpose:** Modular components for the Goal Planner page (`/goals`). All types are AI-ready and structured identically to the Expenses module pattern.
+
+#### `GoalsOverviewCards`
+- **Props:** `overview: GoalsOverview`
+- **Cards:** Total Saved (₹xL format), Active Goals + next milestone, Monthly Commitment, Portfolio Progress (progress bar with overall %).
+
+#### `GoalCard`
+- **Props:** `goal: GoalViewModel`, `onEdit?: (goalId: string) => void`
+- **Design:** Dynamic `accentHex` per goal — used for icon background, progress bar fill, and savings text. No hardcoded colours.
+- **Progress bar:** `role="progressbar"` with `aria-valuenow/min/max`.
+- **On-track indicator:** Green check if `projectedCompletionDate <= targetDate`, amber clock if behind.
+
+#### `GoalProgressRace`
+- **Purpose:** Horizontal stacked bar chart ranking all goals by `completionPercent` descending.
+- **Data:** Imports `MOCK_GOALS` directly (replace with props + API when backend is ready).
+- **AI input:** Visual ranking of goal velocity — the AI uses `monthsRemaining` as the primary planning signal.
+
+#### `GoalInsightsPanel`
+- **Props:** `insights: GoalInsight[]`
+- **Pattern:** Identical to `InsightsPanel` in Expenses — same severity styles, same `isAIGenerated` flag.
+- **AI INTEGRATION POINT:** Replace `MOCK_GOAL_INSIGHTS` with `GET /api/insights?module=goals`.
+
+#### `GoalAIBanner`
+- **Props:** `overview: GoalsOverview`, `onOptimise: () => void`
+- **Sections:** AI badge, headline, body copy (rule-based today), 3 mini-stat chips, allocation breakdown list.
+- **AI INTEGRATION POINT:** Body copy + stats will come from the Gemini pipeline. `onOptimise` → `/assistant`.
+
+#### `AddGoalModal`
+- **Props:** `isOpen: boolean`, `onClose: () => void`
+- **Fields:** Name, description, category (select), target amount, current amount, monthly contribution, target date, priority (High/Medium/Low toggle), note.
+- **BACKEND INTEGRATION POINT:** `handleSubmit` → `goalService.createGoal(form)` → `POST /api/goals`.
+
+---
+
+### 3.22 `AI Assistant Components` (`src/components/assistant/*`)
+
+**Purpose:** Modular components for the AI Assistant chat interface (`/assistant`). Structured to easily support future server-sent events (SSE) streaming and live Gemini model updates.
+
+#### `ChatMessage`
+- **Props:** `message: AIMessage`, `onActionClick: (promptText: string) => void`
+- **Text formatting:** Basic markdown bold parsing (`**text**` → `<strong>`).
+- **Data Cards:** Embedded rendering of `MetricCard` (progress bar, rent/income ratio data) or `ComparisonCard` (budget actual vs targets) when included in `message.card`.
+- **Action chips:** Renders actionable CTA buttons underneath assistant responses that execute follow-up prompts on click.
+
+#### `AIRecommendationsPanel`
+- **Props:** `recommendations: AIRecommendation[]`
+- **Format:** Renders 4-column feed of active warnings, successes, tips, and info items relating to other page metrics.
+
+#### `SuggestedPrompts`
+- **Props:** `prompts: SuggestedPrompt[]`, `onSelect: (promptText: string) => void`
+- **Usage:** Quick chip suggestions scrolling horizontally to prevent users from staring at an empty chat prompt.
+
+#### `ConversationHistory`
+- **Props:** `sessions: ConversationSession[]`, `activeSessionId?: string`, `onSelect: (id: string) => void`
+- **Render:** Left sidebar listing active chat titles, dates, previews, and category tags.
+
+#### `ChatInputBar`
+- **Props:** `state: ChatInputState`, `onTextChange`, `onSend`, `onMicToggle`
+- **Interactive:** Auto-growing textarea using CSS `field-sizing: content` (standard modern browser property), mic active/inactive pulsed outline, and send loading spinner state.
+
+---
 
 ### 4.1 Current State Strategy
 
@@ -444,7 +588,22 @@ All state is currently **local component state** (`useState`). No global state l
 | Form loading/error/success | Each form | `useState<AuthFormState>` |
 | Onboarding wizard step index | `OnboardingPage` | `useState<number>` |
 | Onboarding form data | `OnboardingPage` | `useState<OnboardingData>` |
-| Mobile sidebar drawer open state | `DashboardPage` | `useState<boolean>` |
+| Mobile sidebar drawer open state | `DashboardPage`, `ExpensesPage`, `GoalsPage` | `useState<boolean>` |
+| Add Expense modal open state | `ExpensesPage` | `useState<boolean>` |
+| Expense table filters | `TransactionTable` | `useState<ExpenseFilters>` |
+| Expense table current page | `TransactionTable` | `useState<number>` |
+| Add expense form data | `AddExpenseModal` | `useState<AddExpenseFormData>` |
+| Add expense loading | `AddExpenseModal` | `useState<boolean>` |
+| Add Goal modal open state | `GoalsPage` | `useState<boolean>` |
+| Goals active category filter | `GoalsPage` | `useState<string>` |
+| Goals active priority filter | `GoalsPage` | `useState<string>` |
+| Add goal form data | `AddGoalModal` | `useState<AddGoalFormData>` |
+| Add goal loading | `AddGoalModal` | `useState<boolean>` |
+| Mobile sidebar drawer open state | `AssistantPage` | `useState<boolean>` |
+| History list drawer open state | `AssistantPage` | `useState<boolean>` |
+| Chat messages feed list | `AssistantPage` | `useState<AIMessage[]>` |
+| Active conversation ID | `AssistantPage` | `useState<string>` |
+| Chat input state (text, mic, send) | `AssistantPage` | `useState<ChatInputState>` |
 
 ### 4.2 Planned Global State (for Dashboard+)
 

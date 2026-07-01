@@ -838,3 +838,542 @@ The goal is to push `'use client'` as deep into the tree as possible, so the out
 | Design system changed | TECH_DOC (config section), PRODUCT_DOC if product-visible |
 | Performance improvement | TECH_DOC (performance section), LEARNING_DOC (concepts) |
 | Security hardening | TECH_DOC (security section), LEARNING_DOC (security questions) |
+
+---
+
+## Milestone 6 — Expenses Page
+
+### What was built?
+
+A full Expenses Tracker feature at `/expenses` including:
+
+- **Route:** `src/app/expenses/page.tsx` + `layout.tsx` (with SEO metadata).
+- **6 new components** in `src/components/expenses/`:
+  - `ExpenseOverviewCards` — 4 KPI cards (Monthly Spend, Savings, Top Category, Budget Health).
+  - `CategoryBreakdownChart` — SVG donut chart with 5-category breakdown + legend.
+  - `SpendingTrendChart` — 6-month income vs. expense bar chart with avg. savings row.
+  - `TransactionTable` — Search + category chip filter + status dropdown + sortable + paginated.
+  - `InsightsPanel` — Severity-coded AI-ready insights feed.
+  - `AddExpenseModal` — Fully accessible form modal with recurring toggle.
+- **New type file:** `src/types/expense.ts` — complete type contracts for the AI input layer.
+- **Mock data:** `src/constants/expense.mock.ts` — 20 realistic transactions + category breakdowns + monthly summary + insights.
+- **SidebarNav updated:** `Expenses` route now points to `/expenses`; active-state detection generalised.
+- **Types barrel updated:** `src/types/index.ts` now exports expense types.
+
+---
+
+### Why was it built this way?
+
+#### Why design the data model first?
+
+This page will eventually feed a Gemini AI RAG pipeline. Before writing any JSX, we designed the TypeScript types in `expense.ts` to ensure the AI can derive:
+
+| AI signal | Source field |
+|---|---|
+| Spending patterns | `Transaction.category`, `Transaction.isoDate` |
+| Category distribution | `CategoryBreakdown.percentage` |
+| Savings rate | `MonthlySummary.savingsRate` |
+| Expense trends | `MonthlySummary.expenseDeltaPercent` |
+| Monthly cash flow | `MonthlySummary.netCashFlow` |
+| Behavioral indicators | `Transaction.isRecurring`, `Transaction.note` |
+
+The types are the stable API contract. When the backend is added, only the data source changes — not the types or components.
+
+#### Why put mock data in `constants/` and not inline in the component?
+
+Following the service-layer pattern already established for auth:
+- **Components should not care where data comes from.** Today it's mock constants; tomorrow it's an API call.
+- **Single replacement point.** When the API is ready, only `MOCK_MONTHLY_SUMMARY`, `MOCK_TRANSACTIONS`, and `MOCK_INSIGHTS` need to be replaced with service calls — the rest of the page code stays identical.
+- **Types enforce the contract.** If the API returns a different shape, TypeScript will catch it at the type-checking stage, not at runtime.
+
+#### Why use `useMemo` for filtering instead of a library?
+
+The transaction list has 20 items (eventually hundreds from an API). The filter + sort logic is:
+1. Pure function (no side effects).
+2. Depends only on `transactions` and `filters`.
+3. Expensive to run on every render (linear scan + sort).
+
+`useMemo` memoises the result: it only re-computes when `transactions` or `filters` change, not on every parent re-render. This is exactly the use case `useMemo` is designed for.
+
+**When would we switch to a library?** When the dataset grows to thousands of rows or when virtualisation (windowing) is needed. At that point, `@tanstack/react-table` (Headless UI table library) would handle filtering, sorting, pagination, and virtual rows efficiently.
+
+#### Why build the SVG donut chart from scratch instead of Chart.js / Recharts?
+
+- **Bundle size:** Chart.js adds ~220KB gzipped. Recharts adds ~130KB. Our SVG donut is zero additional bytes.
+- **Design control:** Every pixel matches the FinanceHer design system (colors, spacing, dark mode).
+- **Simplicity:** A donut chart is just 4–5 overlapping `<circle>` elements with `strokeDasharray`.
+- **No hydration mismatch:** Library charts often use `window` or `document`, requiring `'use client'` and causing SSR issues. Our SVG is pure markup.
+
+**When would we switch to a library?** Interactive charts with tooltips, animations, and real-time streaming data — Recharts or Victory would be more appropriate then.
+
+#### Why a separate `ExpenseFilters` type for filter state?
+
+Instead of managing 5+ separate `useState` calls (`search`, `category`, `status`, `sortField`, `sortDirection`), we use one `useState<ExpenseFilters>`. Benefits:
+
+1. **Atomicity:** Filters reset together (one `setFilters(DEFAULT_FILTERS)` call).
+2. **Readability:** `filters.sortField` is more descriptive than `sortField`.
+3. **Extensibility:** Adding a new filter (`dateFrom`, `dateTo`) means adding one field to the type — not a new `useState`.
+4. **AI-ready:** The entire `filters` state can be serialised and logged as a user behavioural signal (e.g., "user frequently filters by Dining category").
+
+#### The SVG Donut Chart — How it works
+
+```
+Circle circumference with r = 15.915:
+  C = 2π × 15.915 ≈ 100
+
+This means strokeDasharray values map directly to percentages.
+
+Segment 1: Housing (38%)
+  strokeDasharray="38 62"   ← 38 filled, 62 gap
+  strokeDashoffset="0"      ← starts at top (-90° due to rotate-90 on SVG)
+
+Segment 2: Dining (11%)
+  strokeDasharray="11 89"   ← 11 filled, 89 gap
+  strokeDashoffset="-38"    ← starts after Housing (negative = clockwise)
+
+Segment 3: Investments (17%)
+  strokeDasharray="17 83"
+  strokeDashoffset="-49"    ← after Housing (38) + Dining (11)
+```
+
+Each segment is a full circle with a "drawn" portion and a "gap" portion. The dash offset shifts the starting point. The `-rotate-90` on the `<svg>` element makes 0° start at the top (12 o'clock) instead of the right (3 o'clock).
+
+---
+
+### Key concepts introduced in this milestone
+
+#### `useMemo` for derived state
+
+```tsx
+const filtered = useMemo(() => {
+  let result = [...transactions];
+  if (filters.search) result = result.filter(...);
+  result.sort(...);
+  return result;
+}, [transactions, filters]); // Only recomputes when these change
+```
+
+**When NOT to use `useMemo`:**
+- For trivial operations (string concatenation, simple additions). The memoisation overhead exceeds the compute savings.
+- When dependencies change on almost every render (the cache is never hit).
+
+**Rule of thumb:** `useMemo` is worthwhile for computations that are visually expensive or run over arrays of 50+ items.
+
+#### Modal accessibility pattern
+
+A correct modal implementation requires:
+
+```tsx
+<div role="dialog" aria-modal="true" aria-labelledby="modal-title">
+  <h2 id="modal-title">Add Transaction</h2>
+  ...
+</div>
+```
+
+- `role="dialog"` — tells screen readers this is a modal dialogue.
+- `aria-modal="true"` — tells screen readers everything outside the modal is inert.
+- `aria-labelledby` — links the modal to its heading; screen reader announces: *"Add Transaction, dialog"*.
+- **Focus trap** (not implemented yet) — pressing Tab should cycle only through focusable elements inside the modal.
+- **Escape to close** — should call `onClose` when Escape is pressed.
+
+> **TODO:** Add `useFocusTrap` hook and `Escape` key handler to `AddExpenseModal` in the next iteration.
+
+#### The ARIA switch pattern
+
+The recurring toggle uses a `div` with `role="switch"`:
+
+```tsx
+<div
+  role="switch"
+  aria-checked={form.isRecurring}
+  tabIndex={0}
+  onKeyDown={(e) => {
+    if (e.key === ' ' || e.key === 'Enter') toggle();
+  }}
+>
+```
+
+Unlike a native `<input type="checkbox">`, the `role="switch"` communicates binary on/off state semantically. Screen readers announce: *"Recurring transaction, switch, off"* and users can toggle with Space or Enter.
+
+#### Design pattern: `isAIGenerated` flag
+
+The `ExpenseInsight` type has a boolean `isAIGenerated: boolean`. This is a **feature flag for the AI integration**:
+
+```ts
+// Today (rule-based)
+{ isAIGenerated: false, title: 'Dining spend is 3× last month', ... }
+
+// After Gemini integration
+{ isAIGenerated: true, title: 'Consider meal prepping Tuesdays', ... }
+```
+
+When the AI is connected, the UI can show a "✦ AI" badge next to insights where `isAIGenerated === true`, building user trust gradually. The type contract is already defined — the component just needs to conditionally render the badge.
+
+---
+
+### Common mistakes to avoid
+
+#### Mistake: Resetting `page` after filter changes
+
+If you update `filters` without resetting `page`, the user might be on page 3 of a filtered result set that now has only 1 page — resulting in an empty table.
+
+**Fix:** Always call `setPage(1)` alongside `setFilters(...)`:
+
+```tsx
+const handleCategory = (cat: string) => {
+  setFilters(f => ({ ...f, category: cat }));
+  setPage(1); // ← always reset to first page
+};
+```
+
+#### Mistake: Non-SVG charts causing SSR hydration mismatch
+
+Chart libraries that use `document.createElement` or `canvas` APIs fail during Server-Side Rendering. If you add a chart library, wrap the component:
+
+```tsx
+const Chart = dynamic(() => import('recharts').then(m => m.LineChart), { ssr: false });
+```
+
+Or ensure the component is explicitly `'use client'` and only mounted after hydration.
+
+#### Mistake: Inline filter logic (no `useMemo`)
+
+```tsx
+// ❌ Runs on every render, even unrelated re-renders
+const filtered = transactions.filter(...).sort(...);
+
+// ✅ Only runs when dependencies change
+const filtered = useMemo(() => transactions.filter(...).sort(...), [transactions, filters]);
+```
+
+---
+
+### Future AI integration — how it plugs in
+
+When the Gemini RAG pipeline is ready:
+
+1. Create `src/services/expense.service.ts`:
+   ```ts
+   export async function getMonthySummary(): Promise<MonthlySummary> {
+     const res = await fetch('/api/expenses/summary');
+     return res.json();
+   }
+   export async function getInsights(): Promise<ExpenseInsight[]> {
+     const res = await fetch('/api/insights');
+     return res.json();
+   }
+   ```
+
+2. In `ExpensesPage`, replace:
+   ```tsx
+   // Before
+   import { MOCK_MONTHLY_SUMMARY, MOCK_INSIGHTS } from '@/constants/expense.mock';
+   
+   // After
+   const summary = await getMonthySummary(); // Server Component data fetch
+   const insights = await getInsights();
+   ```
+
+3. The `InsightsPanel` component, `CategoryBreakdownChart`, and `TransactionTable` receive the same props — **zero component changes needed.**
+
+4. Flip `isAIGenerated: true` on AI-produced insights and add the badge UI.
+
+This is the payoff of designing the data model before the UI. The UI is already the correct shape to receive AI output.
+
+---
+
+## Milestone 7 — Goals Page
+
+### What was built?
+
+A full Goal Planner feature at `/goals` including:
+
+- **Route:** `src/app/goals/page.tsx` + `layout.tsx`.
+- **6 new components** in `src/components/goals/`:
+  - `GoalsOverviewCards` — 4 KPI cards (Total Saved, Active Goals, Monthly Commitment, Portfolio Progress).
+  - `GoalCard` — Individual goal card with dynamic accent colour, animated progress bar, and on-track indicator.
+  - `GoalProgressRace` — Horizontal bar chart ranking all goals by completion %.
+  - `GoalInsightsPanel` — Same pattern as Expenses `InsightsPanel` — goal-specific AI-ready insights.
+  - `GoalAIBanner` — Full-width CTA with 3 mini-stats and allocation breakdown.
+  - `AddGoalModal` — 8-field form with priority toggle.
+- **New type file:** `src/types/goal.ts` — full type contract (`Goal`, `GoalViewModel`, `GoalsOverview`, `GoalInsight`, `AddGoalFormData`).
+- **Mock data:** `src/constants/goal.mock.ts` — 6 real-world goals, `toViewModel()` helper, overview summary, 4 AI insights.
+- **SidebarNav updated:** Goals link changed from `#` to `/goals`.
+- **Types barrel updated:** `src/types/index.ts` now exports goal types.
+
+---
+
+### Why was it built this way?
+
+#### Why `GoalViewModel` extends `Goal` instead of being a separate type?
+
+The `toViewModel()` helper runs once in `goal.mock.ts` at module load time and produces `GoalViewModel[]` from the raw `Goal[]`. This means:
+- **No runtime computation in components.** All derived fields (`completionPercent`, `monthsRemaining`, `projectedCompletionDate`, `isOnTrack`) are pre-calculated.
+- **Single source of truth.** `MOCK_GOALS` is `GoalViewModel[]`, so every component gets the full computed object without running the same maths multiple times.
+- **Easy API migration.** When the backend returns a `Goal[]`, the page fetches it and calls `goals.map(toViewModel)` — one line change.
+
+```ts
+// today
+export const MOCK_GOALS: GoalViewModel[] = RAW_GOALS.map(toViewModel);
+
+// after API:
+const rawGoals = await goalService.getGoals(); // returns Goal[]
+const goals = rawGoals.map(toViewModel);       // still works exactly the same
+```
+
+#### Why dynamic `accentHex` per goal instead of shared primary colour?
+
+Each goal category has a distinct visual identity (purple for Emergency Fund, red for Home, blue for Travel). This makes the page scannable without reading labels. Using inline `style={{ backgroundColor: accentHex }}` on the progress bar allows full flexibility without adding Tailwind arbitrary-value classes to every card variant.
+
+**Rule:** Tailwind arbitrary values (`bg-[#E57373]`) are fine for **one-off** use (the card icon background), but for anything that also needs to render in SVG (the progress bar fill, box-shadow glow), use plain `style` — Tailwind can't generate SVG attributes.
+
+#### Why filter goals client-side with `useMemo`?
+
+Same reasoning as `TransactionTable`:
+- 6 goals is a tiny dataset — no server round-trip needed.
+- Both `activeCategory` and `activePriority` change frequently (user clicks chips).
+- `useMemo([MOCK_GOALS, activeCategory, activePriority])` means the filter only re-runs when those two change, not on every unrelated parent re-render.
+
+The filter logic is 4 lines and pure. There's no reason to add a filter library.
+
+#### Why a `GoalProgressRace` chart instead of another donut?
+
+The Expenses page already has a donut chart. Adding a second one on Goals would be visually redundant. A horizontal bar chart ("progress race") better communicates:
+- **Relative standing** of goals: which one is furthest along?
+- **Urgency**: which goal is closest to done and could be completed first?
+- **Actionability**: the "sort by completion %" framing matches how the AI would rank goals for reallocation recommendations.
+
+---
+
+### Key concepts introduced in this milestone
+
+#### The `GoalViewModel` pattern — enriched view objects
+
+A pattern used widely in enterprise apps: separate the **raw data model** (what the DB stores) from the **view model** (what the UI needs).
+
+```ts
+// Goal: stored in DB / returned by API
+interface Goal {
+  currentAmount: number;
+  targetAmount: number;
+  monthlyContribution: number;
+  targetDate: string;
+}
+
+// GoalViewModel: enriched for UI (computed from Goal)
+interface GoalViewModel extends Goal {
+  completionPercent: number;     // (current / target) * 100
+  remainingAmount: number;       // target - current
+  monthsRemaining: number;       // ceil(remaining / monthly)
+  projectedCompletionDate: string;
+  isOnTrack: boolean;
+}
+```
+
+**Benefits:**
+1. Components receive `goal.completionPercent` — no arithmetic in JSX.
+2. AI pipeline receives structured signals directly — `monthsRemaining` is the key input.
+3. Sorting and filtering by `completionPercent` is trivial (it's pre-computed).
+
+#### ARIA progressbar pattern
+
+```tsx
+<div
+  role="progressbar"
+  aria-valuenow={75}
+  aria-valuemin={0}
+  aria-valuemax={100}
+  aria-label="Emergency Fund: 75%"
+>
+  <div style={{ width: '75%' }} />
+</div>
+```
+
+Screen readers announce: *"Emergency Fund: 75%, progress bar"*.
+
+**Without `role="progressbar"`** the screen reader sees a generic div and skips it. The visual progress bar is invisible to assistive tech.
+
+**`aria-label` is required** because the progress bar has no visible text label of its own inside the `role="progressbar"` element.
+
+#### The Priority toggle (radiogroup pattern)
+
+The Add Goal Modal uses a `div[role="radiogroup"]` with individual `button[role="radio"]` elements instead of `<input type="radio">`. This is preferred when you want custom styling:
+
+```tsx
+<div role="radiogroup" aria-label="Goal priority">
+  {(['High', 'Medium', 'Low'] as GoalPriority[]).map((p) => (
+    <button
+      key={p}
+      role="radio"
+      aria-checked={form.priority === p}
+      onClick={() => updateField('priority', p)}
+      // ...
+    />
+  ))}
+</div>
+```
+
+**Why not `<input type="radio">`?**
+Native radio inputs are difficult to style consistently across browsers. The `role="radio"` + `aria-checked` pattern gives you full CSS control while maintaining equivalent accessibility semantics. Screen readers announce: *"High, radio button, checked"*.
+
+**What you must handle manually** (that native `<input>` handles automatically):
+- `aria-checked` state update on click.
+- Keyboard navigation between radio options (arrow keys). *(TODO for next iteration)*
+
+---
+
+### Common mistakes to avoid
+
+#### Mistake: Forgetting to reset filters when the data source changes
+
+If `MOCK_GOALS` is replaced by a server-side fetch that returns a subset of goals (e.g., filtered by user ID), and `activeCategory` still has a value from a previous session, the user will see an empty list. Always reset filter state when the data source changes:
+
+```tsx
+// When data refetches:
+useEffect(() => {
+  setActiveCategory('All');
+  setActivePriority('All');
+}, [goals]); // Reset filters when goals array reference changes
+```
+
+#### Mistake: Infinite loop with `monthsRemaining = Infinity`
+
+If `monthlyContribution = 0` (which is valid for a goal not yet started), `Math.ceil(remaining / 0)` = `Infinity`. The `toViewModel` helper guards this with `Math.max(goal.monthlyContribution, 1)`. Without this guard, the `GoalProgressRace` would show `Infinity` months remaining.
+
+```ts
+// ❌ Without guard
+const monthsRemaining = Math.ceil(remaining / contribution); // Infinity if contribution = 0
+
+// ✅ With guard
+const monthsRemaining = Math.ceil(remaining / Math.max(contribution, 1));
+```
+
+#### Mistake: Computing view model fields in the component
+
+```tsx
+// ❌ Recomputed on every render
+function GoalCard({ goal }: { goal: Goal }) {
+  const completionPercent = (goal.currentAmount / goal.targetAmount) * 100;
+  // ...
+}
+
+// ✅ Pre-computed in the view model
+function GoalCard({ goal }: { goal: GoalViewModel }) {
+  // goal.completionPercent is already there
+}
+```
+
+The component shouldn't need to know how `completionPercent` is derived. That's the view model's job.
+
+---
+
+### Future AI integration — how it plugs in
+
+When the Gemini RAG pipeline is ready for Goals:
+
+1. Create `src/services/goal.service.ts`:
+   ```ts
+   export async function getGoals(): Promise<GoalViewModel[]> {
+     const raw: Goal[] = await fetch('/api/goals').then(r => r.json());
+     return raw.map(toViewModel); // same helper as mock
+   }
+   export async function getGoalInsights(): Promise<GoalInsight[]> {
+     return fetch('/api/insights?module=goals').then(r => r.json());
+   }
+   export async function createGoal(data: AddGoalFormData): Promise<Goal> {
+     return fetch('/api/goals', { method: 'POST', body: JSON.stringify(data) }).then(r => r.json());
+   }
+   ```
+
+2. In `GoalsPage`, replace mock imports:
+   ```tsx
+   // Before
+   import { MOCK_GOALS, MOCK_GOALS_OVERVIEW, MOCK_GOAL_INSIGHTS } from '@/constants/goal.mock';
+
+   // After (Server Component data fetching)
+   const goals = await getGoals();
+   const overview = await getGoalSummary();
+   const insights = await getGoalInsights();
+   ```
+
+3. The AI will produce `GoalInsight[]` with `isAIGenerated: true`. The `GoalInsightsPanel` renders an "✦ AI" badge automatically. **Zero component changes needed.**
+
+4. `GoalAIBanner` body copy and mini-stats come from a dedicated AI endpoint:
+   ```ts
+   GET /api/goals/ai-recommendation
+   → { headline: string, stats: Stat[], allocationSplit: Split[] }
+   ```
+
+The type contracts in `goal.ts` are already stable. The UI is already the correct shape.
+
+---
+
+### AI Assistant Module
+
+We implemented the AI Assistant module (`/assistant`) with rich chat cards, message flows, horisontal quick prompts, collapsible history sessions, and recommendations panels.
+
+#### HTML CSS field-sizing: content
+
+To make the chat textarea auto-grow vertically based on the content typed by the user, we used the modern CSS property `field-sizing: content`.
+This replaces complex JavaScript event listeners or height-calculation ref hacks:
+
+```css
+/* In CSS */
+textarea {
+  field-sizing: content;
+}
+```
+
+```tsx
+/* In JSX */
+<textarea
+  style={{ fieldSizing: 'content' } as React.CSSProperties}
+/>
+```
+
+It dynamically sizing the input container up to its `max-height` (controlled via `max-h-36 overflow-y-auto`).
+
+#### Dynamic Cards inside Chat Bubbles
+
+The assistant message schema supports custom card layouts:
+```ts
+export interface AssistantCard {
+  type: 'metric' | 'comparison' | 'list' | 'chart-ref';
+  title: string;
+  data: Record<string, string | number | boolean>;
+}
+```
+This enables the response output to dynamically present complex data like KPI metrics or comparison graphs inline with text bubbles.
+
+#### Future AI & Streaming Integration
+
+When the Gemini RAG pipeline is ready:
+
+1. **Streaming Support:**
+   In `src/types/assistant.ts`, add:
+   ```ts
+   export interface AIMessage {
+     // ...
+     isStreaming?: boolean;
+   }
+   ```
+   Modify `ChatMessage` to render an animated blinking cursor or incremental text updates when `isStreaming` is active.
+
+2. **Connecting to live endpoints:**
+   Create `src/services/assistant.service.ts`:
+   ```ts
+   export async function sendMessage(text: string): Promise<AIMessage> {
+     return fetch('/api/assistant/message', {
+       method: 'POST',
+       body: JSON.stringify({ text }),
+     }).then(r => r.json());
+   }
+
+   export async function getConversationHistory(): Promise<ConversationSession[]> {
+     return fetch('/api/assistant/history').then(r => r.json());
+   }
+   ```
+
+3. **Context-Aware RAG:**
+   The backend RAG agent queries the user's dashboard expenses, goals, and fixed commitments to build context before sending the prompt to Gemini. The returned payload returns specific action triggers (like `Trim my budget` or `Adjust Goals`) that deep-link directly back to other pages.
+
