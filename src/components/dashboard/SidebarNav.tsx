@@ -94,13 +94,13 @@ export function SidebarNav({ isOpen, onClose }: SidebarNavProps) {
               fill
               sizes="40px"
               className="object-cover"
-              alt="Elena Vance portrait"
+              alt="Arya Bhat portrait"
               src="https://lh3.googleusercontent.com/aida-public/AB6AXuC2OOjNJkSDwQm355MlpxtkJhf2_9MZekV8n6VUY9bVOO6kKpM8ok46TjVW4_wtrR6F8XcfBDPEyvRcYPx6S_Bl4LarnAMEWXCIDb1oQb0mvW0SFZ-hqBf5ZEN-8AEHMLMG7946dfQzOHa4RtXnbhKtjBgzxBudT1TR5uODg3d5J3Dzx7ih20ws1ycC1wT-pS3xUYOZygvGhanhlVc2elUVbTylH9bwgw8KycmljjiBF9zX3aY5h2y8j_yXmHDdY-Vo-p0IGiZHot1K"
             />
           </div>
           <div className="min-w-0">
             <p className="font-inter font-semibold text-body-sm text-on-surface dark:text-dark-on-surface truncate">
-              Elena Vance
+              Arya Bhat
             </p>
             <p className="text-[10px] text-on-surface-variant dark:text-dark-on-surface-variant/70">
               Free Account
