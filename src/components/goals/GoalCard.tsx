@@ -6,6 +6,7 @@ import { cn } from '@/lib/utils';
 interface GoalCardProps {
   goal: GoalViewModel;
   onEdit?: (goalId: string) => void;
+  onDelete?: (goalId: string) => void;
 }
 
 const TAG_STYLES: Record<string, string> = {
@@ -23,7 +24,7 @@ const TAG_STYLES: Record<string, string> = {
     'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400',
 };
 
-export function GoalCard({ goal, onEdit }: GoalCardProps) {
+export function GoalCard({ goal, onEdit, onDelete }: GoalCardProps) {
   const clampedPercent = Math.min(goal.completionPercent, 100);
   const tagStyle = TAG_STYLES[goal.tag] ?? TAG_STYLES['Standard'];
 
@@ -158,19 +159,32 @@ export function GoalCard({ goal, onEdit }: GoalCardProps) {
         </div>
       </div>
 
-      {/* ── Edit CTA ───────────────────────────────────────────── */}
-      {onEdit && (
-        <button
-          onClick={() => onEdit(goal.id)}
-          className="w-full py-2 rounded-xl border border-outline-variant/30 dark:border-dark-outline-variant/30 font-inter text-body-sm font-medium text-on-surface-variant dark:text-dark-on-surface-variant hover:bg-surface-container dark:hover:bg-dark-surface-container-high hover:text-primary dark:hover:text-dark-primary transition-all focus-visible:ring-2 focus-visible:ring-primary outline-none flex items-center justify-center gap-2"
-          aria-label={`Edit ${goal.name} goal`}
-        >
-          <span className="material-symbols-outlined text-sm" aria-hidden="true">
-            edit
-          </span>
-          Adjust Goal
-        </button>
-      )}
+      {/* ── Action buttons row ─────────────────────────────────── */}
+      <div className="flex gap-3">
+        {onEdit && (
+          <button
+            onClick={() => onEdit(goal.id)}
+            className="flex-1 py-2.5 rounded-xl border border-outline-variant/30 dark:border-dark-outline-variant/30 font-inter text-body-sm font-medium text-on-surface-variant dark:text-dark-on-surface-variant hover:bg-surface-container dark:hover:bg-dark-surface-container-high hover:text-primary dark:hover:text-dark-primary transition-all focus-visible:ring-2 focus-visible:ring-primary outline-none flex items-center justify-center gap-2"
+            aria-label={`Edit ${goal.name} goal`}
+          >
+            <span className="material-symbols-outlined text-sm" aria-hidden="true">
+              edit
+            </span>
+            Adjust
+          </button>
+        )}
+        {onDelete && (
+          <button
+            onClick={() => onDelete(goal.id)}
+            className="py-2.5 px-4 rounded-xl border border-error-container/30 text-error hover:bg-error/10 transition-all focus-visible:ring-2 focus-visible:ring-primary outline-none flex items-center justify-center gap-2"
+            aria-label={`Delete ${goal.name} goal`}
+          >
+            <span className="material-symbols-outlined text-sm" aria-hidden="true">
+              delete
+            </span>
+          </button>
+        )}
+      </div>
     </article>
   );
 }

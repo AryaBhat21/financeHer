@@ -8,6 +8,7 @@ import { cn } from '@/lib/utils';
 interface AddGoalModalProps {
   isOpen: boolean;
   onClose: () => void;
+  onAdd?: (goal: AddGoalFormData) => void;
 }
 
 const INITIAL_FORM: AddGoalFormData = {
@@ -36,7 +37,7 @@ const PRIORITY_STYLES: Record<GoalPriority, string> = {
  * POST /api/goals — the AI layer subscribes to new goal events to
  * update its planning context automatically.
  */
-export function AddGoalModal({ isOpen, onClose }: AddGoalModalProps) {
+export function AddGoalModal({ isOpen, onClose, onAdd }: AddGoalModalProps) {
   const [form, setForm] = useState<AddGoalFormData>(INITIAL_FORM);
   const [isLoading, setIsLoading] = useState(false);
 
@@ -54,6 +55,9 @@ export function AddGoalModal({ isOpen, onClose }: AddGoalModalProps) {
     console.info('[AddGoalModal] Form submitted (mock):', form);
     setTimeout(() => {
       setIsLoading(false);
+      if (onAdd) {
+        onAdd(form);
+      }
       setForm(INITIAL_FORM);
       onClose();
     }, 800);
