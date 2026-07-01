@@ -493,6 +493,25 @@ Standard custom-styled input groups (such as checkbox cards or radio buttons) of
 #### Semantic Landmark Encapsulation
 Wizard screens are wrapped in HTML `<form>` or `<fieldset>` tags with `<legend>` structures rather than plain divs. This ensures screen readers announce the category header (e.g. "Number of dependents") before reading option names.
 
+## Milestone 5 — Dashboard Refactor
+
+### What was built?
+
+An accessible, responsive, and componentized financial dashboard at `/dashboard` built with Next.js 16 and Tailwind.
+
+*   **Modular Component Layout:** Created 8 high-fidelity widgets under `src/components/dashboard/` orchestrated from the main client page.
+*   **Fully Responsive Mobile Drawer:** Rebuilt the sidebar navigation to support desktop layouts (`hidden md:flex`) and custom sliding drawers on mobile/tablet views toggled via a header hamburger.
+*   **State-driven Micro-animations:** Configured the `IncomeExpenseChart` with inline transition percentages triggered on mount (`useEffect`) alongside hover tooltips.
+*   **Accessibility Adherence:** Annotated progress bars, SVG elements, delta metrics, and search controls with proper labels, labels for screen readers, and focus outline behaviors.
+
+### Why was it built this way?
+
+#### React-Native Mounting Transitions
+Instead of raw jQuery or global document event listeners to animate heights of HTML chart columns, we used state variables toggled in React's `useEffect` hook. Sibling DOM components transition smoothly using Tailwind `transition-all duration-700 ease-out` classes, aligning with Next.js App Router render cycles.
+
+#### Decoupled Layout Interfaces
+The dashboard footer and headers are isolated from landing page variations. This preserves specific functional requirements (such as transaction additions, mobile slide overlays, and navigation states) without cluttering general site layout primitives.
+
 ---
 
 ## Interview Question Bank

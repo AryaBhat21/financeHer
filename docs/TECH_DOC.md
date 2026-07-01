@@ -1,7 +1,7 @@
 # FinanceHer — Technical Document
 
 > **Living Document** — Updated alongside every architectural change, new dependency, or implementation decision.  
-> Last updated: 2026-06-28 (Milestone 3 — Landing Page)
+> Last updated: 2026-06-28 (Milestone 5 — Dashboard Page)
 
 ---
 
@@ -90,8 +90,10 @@ financeHer/
 │   │   ├── not-found.tsx        # Custom 404 page
 │   │   ├── auth/
 │   │   │   └── page.tsx         # Auth page at route "/auth"
-│   │   └── onboarding/
-│   │       └── page.tsx         # Onboarding wizard page at "/onboarding"
+│   │   ├── onboarding/
+│   │   │   └── page.tsx         # Onboarding wizard page at "/onboarding"
+│   │   └── dashboard/
+│   │       └── page.tsx         # Dashboard page at route "/dashboard"
 │   │
 │   ├── components/
 │   │   ├── ui/                  # Design-system primitives (reusable across all features)
@@ -123,6 +125,19 @@ financeHer/
 │   │   │   ├── StepExperience.tsx
 │   │   │   ├── StepRisk.tsx
 │   │   │   ├── StepSuccess.tsx
+│   │   │   └── index.ts
+│   │   │
+│   │   ├── dashboard/           # Dashboard layout & widget components
+│   │   │   ├── SidebarNav.tsx
+│   │   │   ├── HealthScoreCard.tsx
+│   │   │   ├── IncomeExpenseChart.tsx
+│   │   │   ├── ActiveGoalsCard.tsx
+│   │   │   ├── AIAssistantCard.tsx
+│   │   │   ├── SpendingBreakdownCard.tsx
+│   │   │   ├── RecentActivityCard.tsx
+│   │   │   ├── BudgetRecommendationCard.tsx
+│   │   │   ├── DashboardHeader.tsx
+│   │   │   ├── DashboardFooter.tsx
 │   │   │   └── index.ts
 │   │   │
 │   │   └── auth/                # Auth feature components (collocated)
@@ -398,6 +413,22 @@ financeHer/
 
 ---
 
+### 3.19 `Dashboard Components` (`src/components/dashboard/*`)
+
+**Purpose:** Modular layout and visualization widgets for the financial dashboard (`/dashboard`).
+
+*   **SidebarNav:** Desktop navigation pane with interactive profile states, "Upgrade to Pro" banner, and sliding drawer functionality for mobile layout responsiveness.
+*   **HealthScoreCard:** Displays overall financial health rating (0-1000) with score metrics, monthly delta indicators, and custom progression states.
+*   **IncomeExpenseChart:** Premium vertical bar chart mapping monthly cash flow trends with hover tooltips and page load state animation.
+*   **ActiveGoalsCard:** Tracks and renders progress for targeted savings goals, featuring custom colors and accessibility descriptors.
+*   **AIAssistantCard:** Proactive financial assistant with chat quick action buttons and subtle gradient glow micro-animations.
+*   **SpendingBreakdownCard:** Custom SVG Donut chart displaying housing, entertainment, and food category breakdowns with a center totals summary.
+*   **RecentActivityCard:** Responsive feed for transactional updates with category symbols, transaction statuses, and amount coloring.
+*   **BudgetRecommendationCard:** Displays actionable high-yield savings tips with "Accept" and "Dismiss" primary triggers.
+*   **DashboardHeader & DashboardFooter:** Layout wrappers handling the mobile menu toggle button, contextual greetings, and dynamic copyright footers.
+
+---
+
 ## 4. State Management
 
 ### 4.1 Current State Strategy
@@ -413,6 +444,7 @@ All state is currently **local component state** (`useState`). No global state l
 | Form loading/error/success | Each form | `useState<AuthFormState>` |
 | Onboarding wizard step index | `OnboardingPage` | `useState<number>` |
 | Onboarding form data | `OnboardingPage` | `useState<OnboardingData>` |
+| Mobile sidebar drawer open state | `DashboardPage` | `useState<boolean>` |
 
 ### 4.2 Planned Global State (for Dashboard+)
 

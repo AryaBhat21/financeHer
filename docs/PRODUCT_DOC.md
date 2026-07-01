@@ -301,13 +301,13 @@ FinanceHer is designed for **anyone** seeking to improve their financial health.
 
 ---
 
-### 6.4 Dashboard (`/dashboard`) *(planned)*
+### 6.4 Dashboard (`/dashboard`)
 
-**Status:** 🔲 Not built
+**Status:** ✅ Built
 
-**Layout:** Sidebar navigation (desktop), bottom tab bar (mobile).
+**Layout:** Desktop sidebar navigation layout with flexible main grid canvas; mobile toggle drawer layout with quick action header.
 
-**Sections:** Net worth card, spending ring chart, goal progress cards, AI insight card, recent transactions list.
+**Sections:** Financial health card, monthly income/expense chart, active goals indicator list, AI Finance Assistant widget, spending category breakdowns, transaction logs feed, and personalized budget advice cards.
 
 ---
 
@@ -355,14 +355,14 @@ FinanceHer is designed for **anyone** seeking to improve their financial health.
 - [x] Accessibility baseline (WCAG 2.1 AA)
 - [ ] Backend: Auth API (JWT + refresh tokens)
 - [ ] Backend: User profile storage
-- [ ] Dashboard skeleton
+- [x] Dashboard skeleton & high-fidelity widgets
 
 ### Version 1.0 — Core Product
 
-- [ ] Dashboard with financial overview
+- [x] Dashboard with financial overview
 - [ ] Expense tracker (manual entry)
 - [ ] Goal planner
-- [ ] Financial health score
+- [x] Financial health score
 - [ ] User settings & profile
 
 ### Version 2.0 — Intelligence Layer
