@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { SidebarNav, DashboardFooter } from '@/components/dashboard';
 import {
   ExpenseOverviewCards,
@@ -11,31 +11,160 @@ import {
   AddExpenseModal,
 } from '@/components/expenses';
 import {
-  MOCK_MONTHLY_SUMMARY,
   MOCK_INSIGHTS,
   MOCK_TRANSACTIONS,
 } from '@/constants/expense.mock';
+import { loadFromStorage, saveToStorage, STORAGE_KEYS } from '@/lib/storage';
+import { type Transaction, type MonthlySummary, type CategoryBreakdown, type ExpenseCategory } from '@/types/expense';
+import { type AddExpenseFormData } from '@/types/expense';
+
+const CATEGORY_COLORS: Record<string, { bg: string; stroke: string }> = {
+  Housing: { bg: 'bg-primary', stroke: '#43257d' },
+  Dining: { bg: 'bg-[#E57373]', stroke: '#E57373' },
+  Groceries: { bg: 'bg-emerald-500', stroke: '#10b981' },
+  Investments: { bg: 'bg-secondary', stroke: '#65558c' },
+  Shopping: { bg: 'bg-amber-500', stroke: '#f59e0b' },
+  Transport: { bg: 'bg-sky-500', stroke: '#0ea5e9' },
+  Bills: { bg: 'bg-orange-500', stroke: '#f97316' },
+  Other: { bg: 'bg-outline', stroke: '#7a7582' },
+};
+
+const CATEGORY_ICONS: Record<string, string> = {
+  Housing: 'home',
+  Income: 'work',
+  Dining: 'restaurant',
+  Groceries: 'shopping_cart',
+  Transport: 'commute',
+  Subscriptions: 'subscriptions',
+  Shopping: 'shopping_bag',
+  Bills: 'electric_bolt',
+  Health: 'health_and_safety',
+  Entertainment: 'movie',
+  Investments: 'trending_up',
+  Education: 'school',
+  Travel: 'flight',
+};
+
+function getCategoryIcon(category: string): string {
+  return CATEGORY_ICONS[category] || 'receipt';
+}
+
+function formatDisplayDate(isoDateStr: string): string {
+  try {
+    const d = new Date(isoDateStr);
+    return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+  } catch {
+    return isoDateStr;
+  }
+}
+
+function deriveMonthlySummary(transactions: Transaction[]): MonthlySummary {
+  let totalExpenses = 0;
+  let totalIncome = 0;
+  const categorySums: Record<string, { sum: number; count: number }> = {};
+
+  transactions.forEach((tx) => {
+    if (tx.type === 'income') {
+      totalIncome += tx.amount;
+    } else {
+      totalExpenses += tx.amount;
+      const cat = tx.category;
+      if (!categorySums[cat]) {
+        categorySums[cat] = { sum: 0, count: 0 };
+      }
+      categorySums[cat].sum += tx.amount;
+      categorySums[cat].count += 1;
+    }
+  });
+
+  const categoryBreakdowns: CategoryBreakdown[] = Object.keys(categorySums).map((cat) => {
+    const { sum, count } = categorySums[cat];
+    const colors = CATEGORY_COLORS[cat] || { bg: 'bg-outline', stroke: '#7a7582' };
+    const pct = totalExpenses > 0 ? Math.round((sum / totalExpenses) * 100) : 0;
+    return {
+      category: cat as ExpenseCategory,
+      totalAmount: sum,
+      percentage: pct,
+      transactionCount: count,
+      icon: getCategoryIcon(cat),
+      colorClass: colors.bg,
+      strokeColor: colors.stroke,
+    };
+  });
+
+  categoryBreakdowns.sort((a, b) => b.totalAmount - a.totalAmount);
+
+  const netCashFlow = totalIncome - totalExpenses;
+  const budgetLimit = 65000;
+  const budgetUtilisationPercent = budgetLimit > 0 ? Math.round((totalExpenses / budgetLimit) * 100) : 0;
+
+  const savingsAmount = categorySums['Investments']?.sum || 0;
+  const savingsRate = totalIncome > 0 ? savingsAmount / totalIncome : 0;
+
+  return {
+    monthKey: '2026-07',
+    label: 'July 2026',
+    totalExpenses,
+    totalIncome,
+    netCashFlow,
+    savingsAmount,
+    savingsRate,
+    expenseDeltaPercent: -8.2,
+    budgetLimit,
+    budgetUtilisationPercent,
+    categoryBreakdowns,
+    transactions,
+  };
+}
 
 /**
  * ExpensesPage — /expenses
  *
- * This page is part of the AI input layer of FinanceHer. All data displayed
- * here is mock state, designed to match the exact type contracts that will be
- * consumed by future AI modules.
- *
- * AI INTEGRATION POINTS (summary — see individual components for details):
- *   1. MOCK_MONTHLY_SUMMARY → replace with useSWR('/api/expenses/summary')
- *   2. MOCK_INSIGHTS        → replace with useSWR('/api/insights')
- *   3. MOCK_TRANSACTIONS    → replace with useSWR('/api/expenses/transactions')
- *   4. AddExpenseModal      → POST /api/expenses on submit
- *
- * BACKEND INTEGRATION POINTS:
- *   - expense.service.ts will be the single file updated when the API is ready.
- *   - All types in src/types/expense.ts remain the stable contract.
+ * Implements client-side state synchronization with localStorage (financeher_expenses).
+ * In the future, replace loadFromStorage/saveToStorage calls with API service hooks.
  */
 export default function ExpensesPage() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+    const data = loadFromStorage<Transaction[]>(STORAGE_KEYS.EXPENSES, MOCK_TRANSACTIONS);
+    setTransactions(data);
+  }, []);
+
+  const handleAddExpense = (formData: AddExpenseFormData) => {
+    const amountNum = typeof formData.amount === 'string' ? parseFloat(formData.amount) || 0 : formData.amount;
+    const newTx: Transaction = {
+      id: `txn_${Date.now()}`,
+      name: formData.name,
+      icon: getCategoryIcon(formData.category),
+      category: formData.category,
+      isoDate: formData.isoDate,
+      displayDate: formatDisplayDate(formData.isoDate),
+      amount: amountNum,
+      type: formData.category === 'Income' ? 'income' : 'expense',
+      status: formData.isRecurring ? 'Recurring' : 'Cleared',
+      paymentMethod: formData.paymentMethod,
+      accountId: '8812',
+      note: formData.note,
+      isRecurring: formData.isRecurring,
+    };
+    const updatedList = [newTx, ...transactions];
+    setTransactions(updatedList);
+    saveToStorage(STORAGE_KEYS.EXPENSES, updatedList);
+  };
+
+  const handleDeleteExpense = (id: string) => {
+    const updatedList = transactions.filter((t) => t.id !== id);
+    setTransactions(updatedList);
+    saveToStorage(STORAGE_KEYS.EXPENSES, updatedList);
+  };
+
+  // Derive layout stats from current state
+  const summary = mounted ? deriveMonthlySummary(transactions) : deriveMonthlySummary([]);
 
   return (
     <div className="bg-background dark:bg-dark-background text-on-background dark:text-dark-on-background min-h-screen flex transition-colors duration-300">
@@ -70,7 +199,7 @@ export default function ExpensesPage() {
                   Expense Tracker
                 </h1>
                 <p className="font-inter text-body-sm text-on-surface-variant dark:text-dark-on-surface-variant/70 mt-0.5">
-                  Monitor your monthly spending and optimise your wealth — {MOCK_MONTHLY_SUMMARY.label}
+                  Monitor your monthly spending and optimise your wealth — {summary.label}
                 </p>
               </div>
             </div>
@@ -89,7 +218,7 @@ export default function ExpensesPage() {
 
           {/* ── Overview Cards ───────────────────────────────────────── */}
           <div className="mb-stack-lg">
-            <ExpenseOverviewCards summary={MOCK_MONTHLY_SUMMARY} />
+            <ExpenseOverviewCards summary={summary} />
           </div>
 
           {/* ── Charts Row ───────────────────────────────────────────── */}
@@ -102,8 +231,8 @@ export default function ExpensesPage() {
             {/* Donut breakdown chart — takes 4 of 12 columns on desktop */}
             <div className="col-span-12 lg:col-span-4">
               <CategoryBreakdownChart
-                breakdowns={MOCK_MONTHLY_SUMMARY.categoryBreakdowns}
-                totalExpenses={MOCK_MONTHLY_SUMMARY.totalExpenses}
+                breakdowns={summary.categoryBreakdowns}
+                totalExpenses={summary.totalExpenses}
               />
             </div>
           </div>
@@ -118,10 +247,13 @@ export default function ExpensesPage() {
               >
                 Transactions
               </h2>
-              <TransactionTable
-                transactions={MOCK_TRANSACTIONS}
-                onAddExpense={() => setIsModalOpen(true)}
-              />
+              {mounted && (
+                <TransactionTable
+                  transactions={transactions}
+                  onAddExpense={() => setIsModalOpen(true)}
+                  onDeleteExpense={handleDeleteExpense}
+                />
+              )}
             </div>
 
             {/* AI Insights panel — 4 columns */}
@@ -150,6 +282,7 @@ export default function ExpensesPage() {
       <AddExpenseModal
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
+        onAdd={handleAddExpense}
       />
     </div>
   );

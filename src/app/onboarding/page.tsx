@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { OnboardingData } from '@/types/onboarding';
+import { saveToStorage, STORAGE_KEYS } from '@/lib/storage';
 import {
   StepOccupationIncome,
   StepFixedExpenses,
@@ -52,6 +53,7 @@ export default function OnboardingPage() {
 
   const handleComplete = () => {
     console.log('Onboarding Completed:', formData);
+    saveToStorage(STORAGE_KEYS.USER_PROFILE, formData);
     // Navigate to the dashboard
     router.push('/auth'); // Or direct to dashboard if authenticated
   };

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { SidebarNav, DashboardFooter } from '@/components/dashboard';
 import {
   GoalsOverviewCards,
@@ -12,35 +12,156 @@ import {
 } from '@/components/goals';
 import {
   MOCK_GOALS,
-  MOCK_GOALS_OVERVIEW,
   MOCK_GOAL_INSIGHTS,
   GOAL_CATEGORIES,
 } from '@/constants/goal.mock';
 import { cn } from '@/lib/utils';
+import { loadFromStorage, saveToStorage, STORAGE_KEYS } from '@/lib/storage';
+import { type Goal, type GoalViewModel, type GoalsOverview, type GoalCategory } from '@/types/goal';
+import { type AddGoalFormData } from '@/types/goal';
+
+const CATEGORY_CONFIGS: Record<string, { icon: string; color: string; hex: string }> = {
+  'Emergency Fund': { icon: 'health_and_safety', color: 'bg-primary', hex: '#43257d' },
+  'Home': { icon: 'home', color: 'bg-[#E57373]', hex: '#E57373' },
+  'Travel': { icon: 'flight_takeoff', color: 'bg-sky-500', hex: '#0ea5e9' },
+  'Retirement': { icon: 'beach_access', color: 'bg-secondary', hex: '#65558c' },
+  'Education': { icon: 'school', color: 'bg-amber-500', hex: '#f59e0b' },
+  'Vehicle': { icon: 'directions_car', color: 'bg-emerald-500', hex: '#10b981' },
+  'Wedding': { icon: 'favorite', color: 'bg-pink-500', hex: '#ec4899' },
+  'Health': { icon: 'medical_services', color: 'bg-red-500', hex: '#ef4444' },
+  'Business': { icon: 'storefront', color: 'bg-indigo-500', hex: '#6366f1' },
+  'Other': { icon: 'flag', color: 'bg-outline', hex: '#7a7582' },
+};
+
+function toViewModel(goal: Goal): GoalViewModel {
+  const completionPercent = goal.targetAmount > 0
+    ? Math.round((goal.currentAmount / goal.targetAmount) * 100 * 10) / 10
+    : 0;
+  const remainingAmount = Math.max(goal.targetAmount - goal.currentAmount, 0);
+  const monthsRemaining = Math.ceil(
+    remainingAmount / Math.max(goal.monthlyContribution, 1)
+  );
+
+  const projected = new Date();
+  projected.setMonth(projected.getMonth() + monthsRemaining);
+  const projectedCompletionDate = projected.toISOString().split('T')[0];
+  const projectedCompletionDisplay = projected.toLocaleDateString('en-IN', {
+    month: 'short',
+    year: 'numeric',
+  });
+
+  const target = new Date(goal.targetDate);
+  const isOnTrack = projected <= target;
+
+  return {
+    ...goal,
+    completionPercent,
+    remainingAmount,
+    monthsRemaining,
+    projectedCompletionDate,
+    projectedCompletionDisplay,
+    isOnTrack,
+  };
+}
+
+function deriveGoalsOverview(goals: GoalViewModel[]): GoalsOverview {
+  const totalSaved = goals.reduce((s, g) => s + g.currentAmount, 0);
+  const totalTargeted = goals.reduce((s, g) => s + g.targetAmount, 0);
+  const activeGoals = goals.filter((g) => g.status === 'Active');
+  const completedGoals = goals.filter((g) => g.status === 'Completed');
+
+  const activeNotFinished = activeGoals.filter((g) => g.completionPercent < 100);
+  activeNotFinished.sort((a, b) => b.completionPercent - a.completionPercent);
+  const nextMilestone = activeNotFinished[0];
+
+  return {
+    totalSaved,
+    totalTargeted,
+    overallCompletionPercent: totalTargeted > 0 ? Math.round((totalSaved / totalTargeted) * 100 * 10) / 10 : 0,
+    activeGoalCount: activeGoals.length,
+    completedGoalCount: completedGoals.length,
+    nextMilestoneGoalId: nextMilestone ? nextMilestone.id : '',
+    nextMilestoneDisplay: nextMilestone ? nextMilestone.displayTargetDate : 'N/A',
+    totalMonthlyContribution: activeGoals.reduce((s, g) => s + g.monthlyContribution, 0),
+    savingsAllocationRate: 0.83,
+  };
+}
 
 /**
  * GoalsPage — /goals
  *
- * AI INTEGRATION POINTS (summary — see individual components for details):
- *   1. MOCK_GOALS          → replace with useSWR('/api/goals')
- *   2. MOCK_GOALS_OVERVIEW → replace with useSWR('/api/goals/summary')
- *   3. MOCK_GOAL_INSIGHTS  → replace with useSWR('/api/insights?module=goals')
- *   4. AddGoalModal        → POST /api/goals on submit
- *   5. GoalAIBanner        → onOptimise → open AI Assistant or route /assistant
- *
- * BACKEND INTEGRATION POINTS:
- *   - goal.service.ts will be the single file updated when the API is ready.
- *   - All types in src/types/goal.ts remain the stable contract.
+ * Implements client-side state synchronization with localStorage (financeher_goals).
  */
 export default function GoalsPage() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [activeCategory, setActiveCategory] = useState<string>('All');
   const [activePriority, setActivePriority] = useState<string>('All');
+  const [goals, setGoals] = useState<GoalViewModel[]>([]);
+  const [mounted, setMounted] = useState(false);
 
-  // Client-side filter (mirrors TransactionTable pattern)
+  useEffect(() => {
+    setMounted(true);
+    const data = loadFromStorage<GoalViewModel[]>(STORAGE_KEYS.GOALS, MOCK_GOALS);
+    setGoals(data);
+  }, []);
+
+  const handleAddGoal = (formData: AddGoalFormData) => {
+    const targetVal = parseFloat(formData.targetAmount) || 0;
+    const currentVal = parseFloat(formData.currentAmount) || 0;
+    const monthlyVal = parseFloat(formData.monthlyContribution) || 0;
+
+    const categoryConfig = CATEGORY_CONFIGS[formData.category] || {
+      icon: 'flag',
+      color: 'bg-outline',
+      hex: '#7a7582',
+    };
+
+    let displayTargetDate = formData.targetDate;
+    try {
+      const d = new Date(formData.targetDate);
+      displayTargetDate = d.toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
+    } catch {}
+
+    const newGoal: Goal = {
+      id: `goal_${Date.now()}`,
+      name: formData.name,
+      description: formData.description || `Savings for ${formData.category}`,
+      category: formData.category,
+      icon: categoryConfig.icon,
+      priority: formData.priority,
+      tag: currentVal / targetVal >= 0.8 ? 'Almost There' : 'Just Started',
+      status: currentVal >= targetVal ? 'Completed' : 'Active',
+      targetAmount: targetVal,
+      currentAmount: currentVal,
+      targetDate: formData.targetDate,
+      displayTargetDate,
+      monthlyContribution: monthlyVal,
+      createdAt: new Date().toISOString().split('T')[0],
+      note: formData.note,
+      accentColor: categoryConfig.color,
+      accentHex: categoryConfig.hex,
+    };
+
+    const viewGoal = toViewModel(newGoal);
+    const updatedGoals = [...goals, viewGoal];
+    setGoals(updatedGoals);
+    saveToStorage(STORAGE_KEYS.GOALS, updatedGoals);
+  };
+
+  const handleDeleteGoal = (id: string) => {
+    const updatedGoals = goals.filter((g) => g.id !== id);
+    setGoals(updatedGoals);
+    saveToStorage(STORAGE_KEYS.GOALS, updatedGoals);
+  };
+
+  const handleOptimise = () => {
+    console.info('[GoalsPage] Optimise clicked — AI assistant integration pending');
+  };
+
+  // Client-side filter
   const filteredGoals = useMemo(() => {
-    let result = [...MOCK_GOALS];
+    let result = [...goals];
     if (activeCategory !== 'All') {
       result = result.filter((g) => g.category === activeCategory);
     }
@@ -48,12 +169,9 @@ export default function GoalsPage() {
       result = result.filter((g) => g.priority === activePriority);
     }
     return result;
-  }, [activeCategory, activePriority]);
+  }, [goals, activeCategory, activePriority]);
 
-  const handleOptimise = () => {
-    // AI INTEGRATION POINT: open AI Assistant modal or route to /assistant
-    console.info('[GoalsPage] Optimise clicked — AI assistant integration pending');
-  };
+  const overview = mounted ? deriveGoalsOverview(goals) : deriveGoalsOverview([]);
 
   return (
     <div className="bg-background dark:bg-dark-background text-on-background dark:text-dark-on-background min-h-screen flex transition-colors duration-300">
@@ -102,14 +220,14 @@ export default function GoalsPage() {
 
           {/* ── Overview Cards ──────────────────────────────────────── */}
           <div className="mb-stack-lg">
-            <GoalsOverviewCards overview={MOCK_GOALS_OVERVIEW} />
+            <GoalsOverviewCards overview={overview} />
           </div>
 
           {/* ── Charts Row ──────────────────────────────────────────── */}
           <div className="grid grid-cols-12 gap-6 mb-stack-lg">
             {/* Progress race — 8 of 12 */}
             <div className="col-span-12 lg:col-span-8">
-              <GoalProgressRace overview={MOCK_GOALS_OVERVIEW} />
+              <GoalProgressRace overview={overview} />
             </div>
 
             {/* AI Insights panel — 4 of 12 */}
@@ -173,7 +291,7 @@ export default function GoalsPage() {
             </div>
 
             {/* 2-column bento grid */}
-            {filteredGoals.length === 0 ? (
+            {mounted && filteredGoals.length === 0 ? (
               <div className="bg-white dark:bg-dark-surface-container rounded-2xl border border-surface-container/20 dark:border-dark-outline-variant/30 py-20 flex flex-col items-center gap-4">
                 <span
                   className="material-symbols-outlined text-4xl text-on-surface-variant/40 dark:text-dark-on-surface-variant/30"
@@ -193,11 +311,12 @@ export default function GoalsPage() {
               </div>
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                {filteredGoals.map((goal) => (
+                {mounted && filteredGoals.map((goal) => (
                   <GoalCard
                     key={goal.id}
                     goal={goal}
                     onEdit={(id) => console.info('[GoalsPage] Edit goal:', id)}
+                    onDelete={handleDeleteGoal}
                   />
                 ))}
               </div>
@@ -206,7 +325,7 @@ export default function GoalsPage() {
 
           {/* ── AI Acceleration Banner ───────────────────────────────── */}
           <div className="mb-stack-lg">
-            <GoalAIBanner overview={MOCK_GOALS_OVERVIEW} onOptimise={handleOptimise} />
+            <GoalAIBanner overview={overview} onOptimise={handleOptimise} />
           </div>
         </div>
 
@@ -227,6 +346,7 @@ export default function GoalsPage() {
       <AddGoalModal
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
+        onAdd={handleAddGoal}
       />
     </div>
   );

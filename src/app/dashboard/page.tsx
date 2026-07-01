@@ -30,7 +30,7 @@ export default function DashboardPage() {
       <main className="flex-1 md:ml-64 p-margin-mobile md:p-margin-desktop overflow-x-hidden flex flex-col justify-between min-h-screen">
         <div>
           {/* Header */}
-          <DashboardHeader onMenuClick={toggleSidebar} userName="Elena" />
+          <DashboardHeader onMenuClick={toggleSidebar} userName="Arya" />
 
           {/* Bento Grid Dashboard Layout */}
           <div className="grid grid-cols-12 gap-6">
