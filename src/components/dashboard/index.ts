@@ -1,0 +1,10 @@
+export { SidebarNav } from './SidebarNav';
+export { HealthScoreCard } from './HealthScoreCard';
+export { IncomeExpenseChart } from './IncomeExpenseChart';
+export { ActiveGoalsCard } from './ActiveGoalsCard';
+export { AIAssistantCard } from './AIAssistantCard';
+export { SpendingBreakdownCard } from './SpendingBreakdownCard';
+export { RecentActivityCard } from './RecentActivityCard';
+export { BudgetRecommendationCard } from './BudgetRecommendationCard';
+export { DashboardHeader } from './DashboardHeader';
+export { DashboardFooter } from './DashboardFooter';
