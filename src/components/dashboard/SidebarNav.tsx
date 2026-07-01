@@ -18,11 +18,11 @@ interface NavItem {
 
 const navItems: NavItem[] = [
   { name: 'Dashboard', href: '/dashboard', icon: 'dashboard' },
-  { name: 'Expenses', href: '#', icon: 'payments' },
-  { name: 'Goals', href: '#', icon: 'ads_click' },
+  { name: 'Expenses', href: '/expenses', icon: 'payments' },
+  { name: 'Goals', href: '/goals', icon: 'ads_click' },
   { name: 'Budget', href: '#', icon: 'account_balance_wallet' },
   { name: 'Health Score', href: '#', icon: 'health_and_safety' },
-  { name: 'AI Assistant', href: '#', icon: 'smart_toy' },
+  { name: 'AI Assistant', href: '/assistant', icon: 'smart_toy' },
   { name: 'Literacy Hub', href: '#', icon: 'menu_book' },
   { name: 'Settings', href: '#', icon: 'settings' },
 ];
@@ -56,8 +56,10 @@ export function SidebarNav({ isOpen, onClose }: SidebarNavProps) {
       {/* Nav List */}
       <nav className="flex-1 space-y-1 overflow-y-auto scrollbar-thin">
         {navItems.map((item) => {
-          // In actual app, we match item.href, for now let's assume /dashboard is active
-          const isActive = pathname === item.href || (item.name === 'Dashboard' && pathname.startsWith('/dashboard'));
+          // Active when pathname exactly matches or starts with the item href (for nested routes)
+          const isActive =
+            item.href !== '#' &&
+            (pathname === item.href || pathname.startsWith(item.href + '/'));
           return (
             <Link
               key={item.name}
