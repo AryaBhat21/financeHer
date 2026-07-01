@@ -8,6 +8,7 @@ import { cn } from '@/lib/utils';
 interface AddExpenseModalProps {
   isOpen: boolean;
   onClose: () => void;
+  onAdd?: (expense: AddExpenseFormData) => void;
 }
 
 const INITIAL_FORM: AddExpenseFormData = {
@@ -31,7 +32,7 @@ const INITIAL_FORM: AddExpenseFormData = {
  * BACKEND INTEGRATION POINT: On success, invalidate the expenses query cache
  * (TanStack Query) so the table auto-refreshes.
  */
-export function AddExpenseModal({ isOpen, onClose }: AddExpenseModalProps) {
+export function AddExpenseModal({ isOpen, onClose, onAdd }: AddExpenseModalProps) {
   const [form, setForm] = useState<AddExpenseFormData>(INITIAL_FORM);
   const [isLoading, setIsLoading] = useState(false);
 
@@ -49,6 +50,9 @@ export function AddExpenseModal({ isOpen, onClose }: AddExpenseModalProps) {
     console.info('[AddExpenseModal] Form submitted (mock):', form);
     setTimeout(() => {
       setIsLoading(false);
+      if (onAdd) {
+        onAdd(form);
+      }
       setForm(INITIAL_FORM);
       onClose();
     }, 800);
