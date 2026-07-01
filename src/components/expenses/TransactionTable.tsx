@@ -8,6 +8,7 @@ import { cn } from '@/lib/utils';
 interface TransactionTableProps {
   transactions: Transaction[];
   onAddExpense: () => void;
+  onDeleteExpense?: (id: string) => void;
 }
 
 const STATUS_STYLES: Record<string, string> = {
@@ -35,7 +36,7 @@ const DEFAULT_FILTERS: ExpenseFilters = {
   sortDirection: 'desc',
 };
 
-export function TransactionTable({ transactions, onAddExpense }: TransactionTableProps) {
+export function TransactionTable({ transactions, onAddExpense, onDeleteExpense }: TransactionTableProps) {
   const [filters, setFilters] = useState<ExpenseFilters>(DEFAULT_FILTERS);
   const [page, setPage] = useState(1);
 
@@ -224,12 +225,15 @@ export function TransactionTable({ transactions, onAddExpense }: TransactionTabl
                 <th className="px-6 py-4 font-inter text-label-md text-on-surface-variant dark:text-dark-on-surface-variant/70 uppercase tracking-widest font-semibold text-center hidden sm:table-cell">
                   Status
                 </th>
+                <th className="px-6 py-4 font-inter text-label-md text-on-surface-variant dark:text-dark-on-surface-variant/70 uppercase tracking-widest font-semibold text-center">
+                  Actions
+                </th>
               </tr>
             </thead>
             <tbody className="divide-y divide-outline-variant/10 dark:divide-dark-outline-variant/20">
               {paginated.length === 0 ? (
                 <tr>
-                  <td colSpan={5} className="px-6 py-16 text-center">
+                  <td colSpan={6} className="px-6 py-16 text-center">
                     <div className="flex flex-col items-center gap-3">
                       <span
                         className="material-symbols-outlined text-4xl text-on-surface-variant/40 dark:text-dark-on-surface-variant/30"
@@ -321,6 +325,24 @@ export function TransactionTable({ transactions, onAddExpense }: TransactionTabl
                         />
                         {tx.status}
                       </span>
+                    </td>
+
+                    {/* Actions */}
+                    <td className="px-6 py-4 text-center">
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          if (onDeleteExpense) {
+                            onDeleteExpense(tx.id);
+                          }
+                        }}
+                        className="text-error hover:text-red-700 p-1.5 rounded-full hover:bg-red-50 dark:hover:bg-red-950/20 transition-colors"
+                        aria-label={`Delete transaction ${tx.name}`}
+                      >
+                        <span className="material-symbols-outlined text-lg" aria-hidden="true">
+                          delete
+                        </span>
+                      </button>
                     </td>
                   </tr>
                 ))
